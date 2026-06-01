@@ -40,9 +40,6 @@ cd android
 ./gradlew assembleDebug
 ```
 
-If Gradle wrapper files are not present in your checkout, run the same tasks
-from Android Studio or generate a wrapper with the local Gradle installation.
-
 ## Digit ML Model
 
 The checked-in `digit_mnist.tflite` is a placeholder until the model is trained.
