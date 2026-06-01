@@ -153,7 +153,7 @@ class DiagnosisViewModel : ViewModel() {
                 AppGraph.diagnosisRepository.analyzeAndSave(userId, bytes, uri?.toString())
             }
             _state.value = if (result.isFallback) {
-                DiagnosisUiState.Fallback(result, "Gemini 또는 이미지 처리 실패 시 샘플 결과를 사용했습니다.")
+                DiagnosisUiState.Fallback(result, "데모 결과로 이어서 보여드릴게요.")
             } else {
                 DiagnosisUiState.Success(result)
             }
@@ -175,7 +175,7 @@ class DiagnosisViewModel : ViewModel() {
                 AppGraph.diagnosisRepository.analyzeAndSave(userId, bytes, "camera-preview")
             }
             _state.value = if (result.isFallback) {
-                DiagnosisUiState.Fallback(result, "카메라 또는 Gemini 실패 시 샘플 결과를 사용했습니다.")
+                DiagnosisUiState.Fallback(result, "데모 결과로 이어서 보여드릴게요.")
             } else {
                 DiagnosisUiState.Success(result)
             }

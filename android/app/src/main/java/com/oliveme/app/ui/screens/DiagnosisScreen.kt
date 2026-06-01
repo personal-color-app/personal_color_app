@@ -21,6 +21,10 @@ import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -50,6 +54,7 @@ fun DiagnosisScreen(
     onAnalyze: () -> Unit,
     onResult: () -> Unit,
 ) {
+    var actionSheetOpen by remember { mutableStateOf(false) }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -67,17 +72,33 @@ fun DiagnosisScreen(
             onAction = onHelp,
         )
         when (state) {
-            is DiagnosisUiState.ChoosePhoto -> ChoosePhoto(onCamera, onGallery, onSample, state.notice)
-            is DiagnosisUiState.Preview -> PreviewPhoto(onCamera, onGallery, onAnalyze)
+            is DiagnosisUiState.ChoosePhoto -> ChoosePhoto(onOpenActions = { actionSheetOpen = true }, notice = state.notice)
+            is DiagnosisUiState.Preview -> PreviewPhoto(onChooseAgain = { actionSheetOpen = true }, onAnalyze = onAnalyze)
             is DiagnosisUiState.Analyzing -> Analyzing(state.step)
             is DiagnosisUiState.Fallback -> DiagnosisComplete("분석 완료", state.reason, onResult)
             is DiagnosisUiState.Success -> DiagnosisComplete("분석 완료", state.result.type, onResult)
+        }
+        if (actionSheetOpen) {
+            UploadActionSheet(
+                onCamera = {
+                    actionSheetOpen = false
+                    onCamera()
+                },
+                onGallery = {
+                    actionSheetOpen = false
+                    onGallery()
+                },
+                onSample = {
+                    actionSheetOpen = false
+                    onSample()
+                },
+            )
         }
     }
 }
 
 @Composable
-private fun ChoosePhoto(onCamera: () -> Unit, onGallery: () -> Unit, onSample: () -> Unit, notice: String?) {
+private fun ChoosePhoto(onOpenActions: () -> Unit, notice: String?) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -92,14 +113,14 @@ private fun ChoosePhoto(onCamera: () -> Unit, onGallery: () -> Unit, onSample: (
             lineHeight = 32.sp,
             fontWeight = FontWeight.Medium,
         )
-        Text("AI가 18초 안에 분석을 완료합니다", color = OliveTextMid, fontSize = 12.sp)
+        Text("사진을 확인해 어울리는 컬러를 찾아볼게요", color = OliveTextMid, fontSize = 12.sp)
         Box(
             Modifier
                 .fillMaxWidth()
                 .height(300.dp)
                 .background(softBeautyGradient(), RoundedCornerShape(24.dp))
                 .border(2.dp, OlivePrimary, RoundedCornerShape(24.dp))
-                .clickable(onClick = onGallery),
+                .clickable(onClick = onOpenActions),
             contentAlignment = Alignment.Center,
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -112,12 +133,8 @@ private fun ChoosePhoto(onCamera: () -> Unit, onGallery: () -> Unit, onSample: (
                     Text("+", color = OlivePrimaryDeep, fontSize = 34.sp, fontWeight = FontWeight.Light)
                 }
                 Text("사진을 추가해주세요", color = OliveText, fontWeight = FontWeight.Bold)
-                Text("얼굴이 잘 보이는 사진을 선택하세요", color = OliveTextMid, fontSize = 12.sp)
+                Text("카메라, 갤러리, 샘플 체험 중 선택하세요", color = OliveTextMid, fontSize = 12.sp)
             }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            SecondaryButton("카메라", Modifier.weight(1f), onCamera)
-            SecondaryButton("갤러리", Modifier.weight(1f), onGallery)
         }
         notice?.let {
             Text(it, color = OlivePrimaryDeep, fontSize = 12.sp, lineHeight = 18.sp)
@@ -135,32 +152,11 @@ private fun ChoosePhoto(onCamera: () -> Unit, onGallery: () -> Unit, onSample: (
                 }
             }
         }
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("또는 샘플 사진으로 체험해보세요", color = OliveTextDim, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                repeat(4) { index ->
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(70.dp)
-                            .background(
-                                if (index % 2 == 0) OlivePrimary.copy(alpha = 0.22f) else OliveSecondarySoft,
-                                RoundedCornerShape(14.dp),
-                            )
-                            .border(1.dp, OliveLine, RoundedCornerShape(14.dp))
-                            .clickable(onClick = onSample),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text("S${index + 1}", color = OlivePrimaryDeep, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-        }
     }
 }
 
 @Composable
-private fun PreviewPhoto(onCamera: () -> Unit, onGallery: () -> Unit, onAnalyze: () -> Unit) {
+private fun PreviewPhoto(onChooseAgain: () -> Unit, onAnalyze: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text("이 사진으로 진단할까요?", color = OliveText, fontFamily = FontFamily.Serif, fontSize = 24.sp, fontWeight = FontWeight.Medium)
         Box(
@@ -178,10 +174,7 @@ private fun PreviewPhoto(onCamera: () -> Unit, onGallery: () -> Unit, onAnalyze:
                 Text("조명·해상도·각도 모두 적합합니다", color = OliveTextMid, fontSize = 12.sp)
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            SecondaryButton("다시 촬영", Modifier.weight(1f), onCamera)
-            SecondaryButton("다른 사진", Modifier.weight(1f), onGallery)
-        }
+        SecondaryButton("다시 선택", onClick = onChooseAgain)
         OliveButton("분석 시작", onClick = onAnalyze)
     }
 }
@@ -191,14 +184,14 @@ private fun Analyzing(step: Int) {
     val labels = listOf("얼굴 인식 중", "피부 색상 추출", "컬러 매칭", "결과 정리")
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text(
-            "AI가 컬러를\n분석하고 있어요",
+            "컬러를\n정리하고 있어요",
             color = OliveText,
             fontFamily = FontFamily.Serif,
             fontSize = 25.sp,
             lineHeight = 32.sp,
             fontWeight = FontWeight.Medium,
         )
-        Text("잠시만 기다려주세요 · 약 18초", color = OliveTextMid, fontSize = 12.sp)
+        Text("잠시만 기다려주세요", color = OliveTextMid, fontSize = 12.sp)
         Box(
             Modifier
                 .fillMaxWidth()
@@ -228,6 +221,35 @@ private fun Analyzing(step: Int) {
             ) {
                 Text(if (done) "✓" else if (active) "•" else "○", color = OlivePrimaryDeep, fontWeight = FontWeight.Bold)
                 Text(label, color = if (active || done) OliveText else OliveTextDim, fontWeight = if (active) FontWeight.Bold else FontWeight.Normal)
+            }
+        }
+    }
+}
+
+@Composable
+private fun UploadActionSheet(onCamera: () -> Unit, onGallery: () -> Unit, onSample: () -> Unit) {
+    OliveCardBlock {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("사진 선택", color = OliveText, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                SecondaryButton("카메라", Modifier.weight(1f), onCamera)
+                SecondaryButton("갤러리", Modifier.weight(1f), onGallery)
+            }
+            Text("샘플로 체험", color = OliveTextDim, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("쿨", "웜", "딥", "라이트").forEach { label ->
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(58.dp)
+                            .background(OliveSecondarySoft, RoundedCornerShape(14.dp))
+                            .border(1.dp, OliveLine, RoundedCornerShape(14.dp))
+                            .clickable(onClick = onSample),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(label, color = OlivePrimaryDeep, fontWeight = FontWeight.Bold)
+                    }
+                }
             }
         }
     }

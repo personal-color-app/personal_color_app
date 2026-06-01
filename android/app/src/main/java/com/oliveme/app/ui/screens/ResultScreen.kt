@@ -19,9 +19,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -53,6 +59,7 @@ fun ResultScreen(
     onMyPage: () -> Unit,
 ) {
     var page by remember { mutableIntStateOf(0) }
+    var menuOpen by remember { mutableStateOf(false) }
     val result = state.result
     Column(
         Modifier
@@ -61,15 +68,37 @@ fun ResultScreen(
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        AppTopBar(
-            "진단 결과",
-            onBack = onBack,
-            navigationIcon = Icons.Filled.ArrowBack,
-            navigationContentDescription = "뒤로",
-            actionIcon = if (state.saved) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-            actionContentDescription = "결과 저장",
-            onAction = onSave,
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.Filled.ArrowBack, contentDescription = "뒤로", tint = OliveText)
+            }
+            Text("진단 결과", fontWeight = FontWeight.Bold, color = OliveText, fontSize = 20.sp)
+            Row {
+                IconButton(onClick = onSave) {
+                    Icon(
+                        if (state.saved) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                        contentDescription = "결과 저장",
+                        tint = OlivePrimaryDeep,
+                    )
+                }
+                IconButton(onClick = { menuOpen = true }) {
+                    Icon(Icons.Filled.MoreVert, contentDescription = "결과 더보기", tint = OliveText)
+                }
+                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    DropdownMenuItem(
+                        text = { Text("공유") },
+                        onClick = {
+                            menuOpen = false
+                            onShare()
+                        },
+                    )
+                }
+            }
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("내 컬러", "의상", "메이크업", "특징").forEachIndexed { index, label ->
                 Pill(label, selected = page == index) { page = index }
@@ -92,12 +121,22 @@ fun ResultScreen(
             2 -> ProductPage("메이크업 추천", result.makeup.values.flatten(), Modifier.weight(1f))
             else -> TraitsPage(result.traits, result.keywords, result.signature, Modifier.weight(1f))
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            SecondaryButton("공유", Modifier.weight(0.8f), onShare)
-            SecondaryButton("근처 매장", Modifier.weight(1f), onMap)
-            OliveButton("마이페이지 저장", Modifier.weight(1.2f), onClick = onMyPage)
-        }
+        NearbyStoreCard(onClick = onMap)
+        OliveButton("마이페이지 저장", onClick = onMyPage)
         LegacyJetpackEvidence()
+    }
+}
+
+@Composable
+private fun NearbyStoreCard(onClick: () -> Unit) {
+    OliveCardBlock(Modifier.clickable(onClick = onClick)) {
+        Row(horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.weight(1f)) {
+                Text("추천 매장", color = OliveText, fontWeight = FontWeight.Bold)
+                Text("어울리는 컬러 제품을 볼 수 있는 근처 매장", color = OliveTextDim, fontSize = 12.sp)
+            }
+            Text("보기", color = OlivePrimaryDeep, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+        }
     }
 }
 
