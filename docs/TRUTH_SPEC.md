@@ -289,13 +289,13 @@ flowchart TD
 
 | 화면 | 현재 구현 사실 | HTML 1:1 목표 |
 | --- | --- | --- |
-| Login | full logo, Kakao, `이메일로 둘러보기`, demo credential 자동 사용, terms text | translucent bottom sheet와 HTML spacing 추가 정밀화 |
-| Digit 2FA | 손글씨 canvas, TFLite 판정, fallback button, reset | 숫자 1 인증 안정성, 빈/작은 stroke 안내, 크래시 금지 |
-| Main | drawer, notification toast, hero CTA, quick action, recent -> result, color story pills | bottom tab 또는 동일 navigation density 정밀화 |
-| Diagnosis | camera/gallery, cancel notice, sample row, help toast, preview, analyze, sample fallback | 4/5 upload/preview area와 scan animation 정밀화 |
-| Result | Compose 4 tabs, HTML labels, dot indicator, save toast, share Intent, map/mypage 이동 | user-visible swipe pager 정밀화 |
-| Map | full-bleed mock map, search bar, filters, markers, bottom sheet, favorite toggle, directions toast | 실제 Kakao Map SDK view 정밀화 |
-| MyPage | avatar/edit toast, stats row, magazine report, save/share, clickable history/store, empty state, redo | HTML spacing/thumbnail fidelity 정밀화 |
+| Login | full logo, Kakao, `이메일로 로그인하기`, email/password sheet, demo nickname start, terms text | translucent bottom sheet spacing 추가 정밀화 |
+| Digit 2FA | 손글씨 canvas, TFLite 판정, model-unavailable continue button, reset | 숫자 1 인증 안정성, 빈/작은 stroke 안내, 크래시 금지 |
+| Main | 6-item drawer, hero CTA, quick action, recent -> result, color story pills | bottom tab 또는 동일 navigation density 정밀화 |
+| Diagnosis | upload card, action sheet camera/gallery/sample, cancel notice, help toast, preview, analyze, demo fallback | 4/5 upload/preview area와 scan animation 정밀화 |
+| Result | Compose 4 tabs, dot indicator, save icon, overflow share, map recommendation card, mypage primary | user-visible swipe pager 정밀화 |
+| Map | full-bleed mock map, search bar, 3 filters, markers, bottom sheet, selected-card favorite/directions | 실제 Kakao Map SDK view 정밀화 |
+| MyPage | avatar, stats row, short tabs, magazine report, overflow save/share, clickable history/store, empty state, redo | HTML spacing/thumbnail fidelity 정밀화 |
 
 ## 6. 데이터 설계
 
@@ -375,33 +375,32 @@ KAKAO_REST_API_KEY=...
 | 화면 | 버튼/상호작용 | 현재 동작 | HTML 기대 동작 | 구현 결정/fallback |
 | --- | --- | --- | --- | --- |
 | Login | Kakao | Kakao SDK login, 실패 시 error text | 카카오로 시작하기 | 실패 시 email/demo 사용 안내 |
-| Login | 이메일로 둘러보기 | demo login 실행 | email button | demo credential 자동 사용, 2FA 이동 |
+| Login | 이메일로 로그인하기 | email/password sheet open | email button | 입력 검증 또는 demo 시작, 2FA 이동 |
 | Login | 약관/개인정보 | 안내 텍스트 | underline text | 현재 안내만, 향후 snackbar/문서 |
 | 2FA | 인증 | TFLite classify | 숫자 1 판정 | 실패 시 재시도, crash 금지 |
 | 2FA | 다시 그리기 | canvas clear/reset | clear | state Ready |
-| 2FA | 모델 fallback | demo 통과 버튼 존재 | 없음 | 모델 불가 시 demo 통과 허용 |
+| 2FA | 모델 fallback | 인증 없이 계속하기 | 없음 | 모델 불가 시 crash 없이 continue 허용 |
 | Main | hamburger | drawer open | drawer open | 정상 |
-| Main | 알림 | toast 안내 | bell action | `새 알림이 없습니다` |
+| Main | 설정 | drawer item | settings | `SettingsActivity` 이동 |
 | Main | 진단 CTA | Diagnosis 이동 | diagnosis | 정상 |
 | Main | 근처 매장 | Map 이동 | map | 정상 |
 | Main | 마이페이지 | MyPage 이동 | mypage | 정상 |
 | Main | 최근 결과 | Result 이동 | Result 이동 | 정상 |
 | Main | drawer 홈 | close | main | close |
-| Main | drawer 컬러 상담 | toast 안내 | 상담 목표 | `컬러 상담은 준비 중입니다` |
 | Diagnosis | help | 촬영 팁 toast | chat/help icon | 정상 |
-| Diagnosis | upload area | gallery | pick | gallery |
-| Diagnosis | sample photo | sample preview | sample preview | 분석 시 sample fallback |
-| Diagnosis | 분석 시작 | Gemini/sample | analyze | 실패 시 sample result |
-| Result | share | `ACTION_SEND` chooser | share | 앱 없음 toast |
+| Diagnosis | upload area | action sheet | pick | camera/gallery/sample 선택 |
+| Diagnosis | sample photo | sheet 내부 sample preview | sample preview | 분석 시 demo result |
+| Diagnosis | 분석 시작 | Gemini/demo | analyze | 실패 시 demo result |
+| Result | share | overflow `ACTION_SEND` chooser | share | 앱 없음 toast |
 | Result | save | saved toggle + toast | toast + save | heart fill + 안내 |
 | Result | tabs | 4 Compose tabs + dot | 4 pager labels | label/dot 맞춤 |
 | Map | locate | fallback reload + toast | location | permission/fallback load |
-| Map | filters | `activeFilter` state | filter state | local filter |
-| Map | favorite | Room save/remove + in-memory ids | heart favorite | 실패해도 UI 유지 |
-| Map | 길찾기 | 준비 중 toast | navigate | external intent는 추가 목표 |
-| MyPage | settings/edit | toast 안내 | settings/edit | crash-free 안내 |
-| MyPage | tabs | 3 tabs | 3 tabs | label 맞춤 |
-| MyPage | report save/share | save toast/share Intent | save/share | 앱 없음 toast |
+| Map | filters | `전체`, `영업 중`, `저장` | filter state | local filter |
+| Map | favorite | 선택된 card에서 Room save/remove + in-memory ids | heart favorite | 실패해도 UI 유지 |
+| Map | 길찾기 | 선택된 card에서 map URL intent | navigate | 앱 없음 toast |
+| MyPage | settings | Settings 이동 | settings/edit | 설정 화면에서 계정/보안/개인정보 관리 |
+| MyPage | tabs | `리포트`, `이력`, `매장` | 3 tabs | label 맞춤 |
+| MyPage | report save/share | overflow save toast/share Intent | save/share | 앱 없음 toast |
 | MyPage | history/store item | result/map navigation | open result/map | 정상 |
 | MyPage | redo | Diagnosis 이동 | redo | 정상 |
 

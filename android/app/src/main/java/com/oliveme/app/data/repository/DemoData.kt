@@ -19,13 +19,14 @@ object DemoData {
         return "${tones.random()} ${Random.nextInt(100, 999)}"
     }
 
-    fun sampleResult(reason: String = "demo fallback") = PersonalColorResult(
+    @Suppress("UNUSED_PARAMETER")
+    fun sampleResult(reason: String = "demo") = PersonalColorResult(
         id = "sample-${UUID.randomUUID()}",
         type = "겨울 쿨톤",
         englishLabel = "WINTER · COOL · DEEP",
         matchScore = 92,
         description = "선명한 대비와 차가운 딥 컬러가 얼굴 윤곽을 또렷하게 살려주는 타입입니다.",
-        signature = "버건디, 네이비, 플럼처럼 깊고 차가운 색이 가장 안정적입니다. ($reason)",
+        signature = "버건디, 네이비, 플럼처럼 깊고 차가운 색이 가장 안정적입니다.",
         palette = listOf(
             ColorItem("#722F37", "와인"),
             ColorItem("#5B1A1F", "버건디"),

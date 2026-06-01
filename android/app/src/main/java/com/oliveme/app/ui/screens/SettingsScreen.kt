@@ -103,7 +103,7 @@ fun SettingsScreen(
                 )
             }
             SettingsSection("위치와 매장") {
-                InfoLine("현재 fallback 지역", "부산대 기준 추천 매장")
+                InfoLine("기준 지역", "부산대 기준 추천 매장")
                 InfoLine("저장한 매장", "${state.favoriteCount}개")
                 CompactAction(
                     text = "저장 매장 비우기",
