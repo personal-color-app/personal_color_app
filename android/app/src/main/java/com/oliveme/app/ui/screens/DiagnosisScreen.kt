@@ -72,14 +72,9 @@ fun DiagnosisScreen(
             onAction = onHelp,
         )
         when (state) {
-            is DiagnosisUiState.ChoosePhoto -> ChoosePhoto(onOpenActions = { actionSheetOpen = true }, notice = state.notice)
-            is DiagnosisUiState.Preview -> PreviewPhoto(onChooseAgain = { actionSheetOpen = true }, onAnalyze = onAnalyze)
-            is DiagnosisUiState.Analyzing -> Analyzing(state.step)
-            is DiagnosisUiState.Fallback -> DiagnosisComplete("분석 완료", state.reason, onResult)
-            is DiagnosisUiState.Success -> DiagnosisComplete("분석 완료", state.result.type, onResult)
-        }
-        if (actionSheetOpen) {
-            UploadActionSheet(
+            is DiagnosisUiState.ChoosePhoto -> ChoosePhoto(
+                onOpenActions = { actionSheetOpen = true },
+                actionSheetOpen = actionSheetOpen,
                 onCamera = {
                     actionSheetOpen = false
                     onCamera()
@@ -92,13 +87,41 @@ fun DiagnosisScreen(
                     actionSheetOpen = false
                     onSample()
                 },
+                notice = state.notice,
             )
+            is DiagnosisUiState.Preview -> PreviewPhoto(
+                actionSheetOpen = actionSheetOpen,
+                onChooseAgain = { actionSheetOpen = true },
+                onCamera = {
+                    actionSheetOpen = false
+                    onCamera()
+                },
+                onGallery = {
+                    actionSheetOpen = false
+                    onGallery()
+                },
+                onSample = {
+                    actionSheetOpen = false
+                    onSample()
+                },
+                onAnalyze = onAnalyze,
+            )
+            is DiagnosisUiState.Analyzing -> Analyzing(state.step)
+            is DiagnosisUiState.Fallback -> DiagnosisComplete("분석 완료", state.reason, onResult)
+            is DiagnosisUiState.Success -> DiagnosisComplete("분석 완료", state.result.type, onResult)
         }
     }
 }
 
 @Composable
-private fun ChoosePhoto(onOpenActions: () -> Unit, notice: String?) {
+private fun ChoosePhoto(
+    onOpenActions: () -> Unit,
+    actionSheetOpen: Boolean,
+    onCamera: () -> Unit,
+    onGallery: () -> Unit,
+    onSample: () -> Unit,
+    notice: String?,
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -136,6 +159,9 @@ private fun ChoosePhoto(onOpenActions: () -> Unit, notice: String?) {
                 Text("카메라, 갤러리, 샘플 체험 중 선택하세요", color = OliveTextMid, fontSize = 12.sp)
             }
         }
+        if (actionSheetOpen) {
+            UploadActionSheet(onCamera = onCamera, onGallery = onGallery, onSample = onSample)
+        }
         notice?.let {
             Text(it, color = OlivePrimaryDeep, fontSize = 12.sp, lineHeight = 18.sp)
         }
@@ -156,7 +182,14 @@ private fun ChoosePhoto(onOpenActions: () -> Unit, notice: String?) {
 }
 
 @Composable
-private fun PreviewPhoto(onChooseAgain: () -> Unit, onAnalyze: () -> Unit) {
+private fun PreviewPhoto(
+    actionSheetOpen: Boolean,
+    onChooseAgain: () -> Unit,
+    onCamera: () -> Unit,
+    onGallery: () -> Unit,
+    onSample: () -> Unit,
+    onAnalyze: () -> Unit,
+) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text("이 사진으로 진단할까요?", color = OliveText, fontFamily = FontFamily.Serif, fontSize = 24.sp, fontWeight = FontWeight.Medium)
         Box(
@@ -175,6 +208,9 @@ private fun PreviewPhoto(onChooseAgain: () -> Unit, onAnalyze: () -> Unit) {
             }
         }
         SecondaryButton("다시 선택", onClick = onChooseAgain)
+        if (actionSheetOpen) {
+            UploadActionSheet(onCamera = onCamera, onGallery = onGallery, onSample = onSample)
+        }
         OliveButton("분석 시작", onClick = onAnalyze)
     }
 }
