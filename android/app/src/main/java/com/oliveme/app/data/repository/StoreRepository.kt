@@ -63,4 +63,10 @@ class StoreRepository(
                 OliveStore(it.id, it.name, it.address, it.distanceLabel, it.lat, it.lng, it.phone, it.placeUrl)
             }
         }.getOrDefault(DemoData.sampleStores().take(2))
+
+    suspend fun clearFavorites(userId: String) {
+        runCatching {
+            dao.deleteFavoriteStores(userId)
+        }
+    }
 }

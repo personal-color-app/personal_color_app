@@ -253,3 +253,47 @@ class MyPageViewModel : ViewModel() {
         }
     }
 }
+
+data class SettingsUiState(
+    val historyCount: Int = 0,
+    val favoriteCount: Int = 0,
+    val busy: Boolean = false,
+    val message: String? = null,
+)
+
+class SettingsViewModel : ViewModel() {
+    private val _state = MutableStateFlow(SettingsUiState())
+    val state: StateFlow<SettingsUiState> = _state.asStateFlow()
+
+    fun load(userId: String) {
+        viewModelScope.launch {
+            val history = withContext(Dispatchers.IO) { AppGraph.diagnosisRepository.history(userId) }
+            val favorites = withContext(Dispatchers.IO) { AppGraph.storeRepository.favorites(userId) }
+            _state.value = _state.value.copy(
+                historyCount = history.size,
+                favoriteCount = favorites.size,
+                busy = false,
+            )
+        }
+    }
+
+    fun deleteHistory(userId: String) {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(busy = true, message = null)
+            withContext(Dispatchers.IO) { AppGraph.diagnosisRepository.deleteHistory(userId) }
+            _state.value = _state.value.copy(historyCount = 0, busy = false, message = "진단 기록을 정리했습니다.")
+        }
+    }
+
+    fun clearFavorites(userId: String) {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(busy = true, message = null)
+            withContext(Dispatchers.IO) { AppGraph.storeRepository.clearFavorites(userId) }
+            _state.value = _state.value.copy(favoriteCount = 0, busy = false, message = "저장한 매장을 비웠습니다.")
+        }
+    }
+
+    fun clearMessage() {
+        _state.value = _state.value.copy(message = null)
+    }
+}

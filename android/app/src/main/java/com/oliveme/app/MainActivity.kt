@@ -1,7 +1,6 @@
 package com.oliveme.app
 
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import com.oliveme.app.data.repository.AppGraph
@@ -21,8 +20,7 @@ class MainActivity : ComponentActivity() {
                     onMap = { startActivity(mapIntent(user)) },
                     onMyPage = { startActivity(myPageIntent(user)) },
                     onResult = { startActivity(resultIntent(user)) },
-                    onNotice = { Toast.makeText(this, "새 알림이 없습니다.", Toast.LENGTH_SHORT).show() },
-                    onConsult = { Toast.makeText(this, "컬러 상담은 준비 중입니다.", Toast.LENGTH_SHORT).show() },
+                    onSettings = { startActivity(settingsIntent(user)) },
                     onLogout = {
                         startActivity(android.content.Intent(this, LoginActivity::class.java))
                         finish()

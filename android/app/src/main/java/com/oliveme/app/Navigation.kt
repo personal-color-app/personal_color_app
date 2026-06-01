@@ -19,3 +19,4 @@ fun Context.diagnosisIntent(user: UserProfile): Intent = Intent(this, DiagnosisA
 fun Context.resultIntent(user: UserProfile): Intent = Intent(this, ResultActivity::class.java).putUser(user)
 fun Context.mapIntent(user: UserProfile): Intent = Intent(this, MapActivity::class.java).putUser(user)
 fun Context.myPageIntent(user: UserProfile): Intent = Intent(this, MyPageActivity::class.java).putUser(user)
+fun Context.settingsIntent(user: UserProfile): Intent = Intent(this, SettingsActivity::class.java).putUser(user)

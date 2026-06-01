@@ -12,10 +12,10 @@ class DiagnosisRepository(
 ) {
     suspend fun analyzeAndSave(userId: String, imageBytes: ByteArray?, sourceUri: String?): PersonalColorResult {
         val result = if (imageBytes == null || imageBytes.isEmpty()) {
-            DemoData.sampleResult("이미지 없음")
+            DemoData.sampleResult("사진을 불러오지 못해 데모 결과로 이어서 보여드릴게요")
         } else {
             geminiService.analyze(imageBytes).getOrElse { error ->
-                DemoData.sampleResult(error.message ?: "Gemini 분석 실패")
+                DemoData.sampleResult(error.message ?: "데모 결과로 이어서 보여드릴게요")
             }
         }
         save(userId, sourceUri, result)
@@ -67,4 +67,12 @@ class DiagnosisRepository(
 
     suspend fun history(userId: String): List<DiagnosisHistoryEntity> =
         runCatching { dao.getDiagnosisHistory(userId) }.getOrDefault(emptyList())
+
+    suspend fun deleteHistory(userId: String) {
+        runCatching {
+            dao.deleteColorsForUserHistory(userId)
+            dao.deleteProductsForUserHistory(userId)
+            dao.deleteDiagnosisHistory(userId)
+        }
+    }
 }
