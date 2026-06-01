@@ -2,16 +2,22 @@ package com.oliveme.app.data.repository
 
 import com.oliveme.app.util.UiText
 import java.util.UUID
+import kotlin.random.Random
 
 object DemoData {
-    fun demoUser() = UserProfile(
+    fun demoUser(displayName: String = UiText.DEMO_NAME) = UserProfile(
         userId = UiText.DEMO_USER_ID,
         email = UiText.DEMO_EMAIL,
-        displayName = UiText.DEMO_NAME,
+        displayName = displayName,
         loginProvider = "demo",
     )
 
     fun safeUser() = demoUser()
+
+    fun randomDemoName(): String {
+        val tones = listOf("로즈", "라벤더", "플럼", "네이비", "베리", "올리브")
+        return "${tones.random()} ${Random.nextInt(100, 999)}"
+    }
 
     fun sampleResult(reason: String = "demo fallback") = PersonalColorResult(
         id = "sample-${UUID.randomUUID()}",

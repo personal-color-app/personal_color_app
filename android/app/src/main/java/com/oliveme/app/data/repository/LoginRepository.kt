@@ -12,11 +12,11 @@ class LoginRepository(
     private val dao: OliveMeDao,
     private val digitAuthRepository: DigitAuthRepository,
 ) {
-    suspend fun loginDemo(email: String, password: String): Result<UserProfile> {
+    suspend fun loginDemo(email: String, password: String, displayName: String? = null): Result<UserProfile> {
         if (email.trim() != UiText.DEMO_EMAIL || password != UiText.DEMO_PASSWORD) {
             return Result.failure(IllegalArgumentException("데모 계정 정보가 맞지 않습니다."))
         }
-        val user = DemoData.demoUser()
+        val user = DemoData.demoUser(displayName = displayName ?: UiText.DEMO_NAME)
         persistUser(user)
         digitAuthRepository.ensureDemoConfig()
         return Result.success(user)

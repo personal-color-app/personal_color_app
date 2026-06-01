@@ -36,7 +36,8 @@ class LoginActivity : ComponentActivity() {
                 LoginScreen(
                     state = state,
                     onKakao = { viewModel.loginKakao(this) },
-                    onDemo = viewModel::loginDemo,
+                    onEmailLogin = viewModel::loginDemo,
+                    onDemoStart = viewModel::loginDemoWithRandomNickname,
                 )
             }
         }

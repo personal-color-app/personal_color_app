@@ -34,10 +34,18 @@ class LoginViewModel : ViewModel() {
     val state: StateFlow<LoginUiState> = _state.asStateFlow()
 
     fun loginDemo(email: String, password: String) {
+        loginDemoInternal(email, password, null)
+    }
+
+    fun loginDemoWithRandomNickname() {
+        loginDemoInternal(UiText.DEMO_EMAIL, UiText.DEMO_PASSWORD, DemoData.randomDemoName())
+    }
+
+    private fun loginDemoInternal(email: String, password: String, displayName: String?) {
         viewModelScope.launch {
             _state.value = LoginUiState.Loading
             val result = withContext(Dispatchers.IO) {
-                AppGraph.loginRepository.loginDemo(email, password)
+                AppGraph.loginRepository.loginDemo(email, password, displayName)
             }
             result.fold(
                 onSuccess = { user ->
