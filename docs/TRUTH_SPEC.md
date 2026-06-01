@@ -26,6 +26,36 @@ OliveMe는 사용자가 얼굴 사진을 선택하거나 촬영하면 Gemini Vis
 - 중대한 변경, 보안/설계 검토, 채점 리스크, HTML parity 미달 항목은 GitHub issue로 흔적을 남기고 PR에서 닫는다.
 - 오류 발생으로 앱이 종료되면 안정성 0점 리스크가 있으므로 모든 외부 실패는 안내 메시지와 fallback 상태로 전환한다.
 
+### 1.1 UI 감축 및 접근성 원칙
+
+2026-06-01 이후 UI 정리 작업의 기준은 "기능 삭제 없이 노출 밀도만 낮추기"다. 사용자가 보는 버튼 수는 줄이되, 기존 기능은 반드시 `bottom sheet`, `overflow`, `selected card`, `settings`, `toast action`, 명확한 화면 이동 중 하나로 접근 가능해야 한다.
+
+- 화면당 primary CTA는 1개를 기본값으로 한다.
+- 보조 CTA는 최대 1개만 상시 노출한다.
+- 세 번째 이후 기능은 sheet, overflow, 선택된 카드, 설정 화면으로 접는다.
+- 숨긴 기능은 버튼 매트릭스에 새 접근 경로를 기록한다.
+- `준비 중입니다`만 표시하는 버튼은 사용자 화면에서 숨기거나 설정/정보 항목으로 이동한다.
+- 사용자는 주요 기능에 최대 2-3번 탭 안에 도달해야 한다.
+- 모든 icon button은 `contentDescription`과 실제 이벤트를 가진다.
+
+사용자 화면 금지 문구:
+
+- `Gemini 실패`
+- `sample fallback`
+- `샘플 리포트`
+- `모델 준비 전 데모 통과`
+- `S1`, `S2`, `S3`, `S4`
+- 근거 없는 고정 시간 문구인 `18초`
+- 근거 없는 고정 성능 문구인 `정확도 92%`
+
+허용 대체 문구:
+
+- `데모 결과로 이어서 보여드릴게요`
+- `최근 리포트`
+- `샘플로 체험`
+- `컬러를 정리하고 있어요`
+- `부산대 기준 추천 매장`
+
 ## 2. 입력 자료에서 확정된 요구사항
 
 ### 2.1 과제 및 채점 기준
@@ -218,6 +248,44 @@ flowchart TD
 | `--line` | `#EDE3DC` | `OliveLine` |
 
 ### 5.3 화면별 현재 구현과 HTML 목표
+
+### 5.4 UI 감축 후 버튼 매트릭스
+
+| 화면 | 기능 | 새 접근 경로 | 실제 이벤트 | 실패 fallback | QA 확인 방법 |
+| --- | --- | --- | --- | --- | --- |
+| Login | Kakao login | 첫 화면 `카카오로 시작하기` | Kakao SDK login | error text | Kakao 취소/실패 후 앱 유지 |
+| Login | 이메일 로그인 | 첫 화면 `이메일로 로그인하기` -> bottom sheet | email/password 검증 | sheet inline error | invalid login 후 재시도 |
+| Login | demo 시작 | email bottom sheet `데모로 시작` | 임시 닉네임 demo user 생성 후 2FA/Main 이동 | login error text | demo 안내 노출 후 2FA 이동 |
+| Digit2Fa | 인증 | canvas + 인증 버튼 | TFLite classify | 실패 메시지 + 무제한 재시도 | 빈 캔버스/오답/정답 |
+| Main | drawer | 상단 menu icon | drawer open/close | Back closes drawer | drawer 6개 항목 확인 |
+| Main | 진단 | drawer `진단`, hero CTA | `DiagnosisActivity` | safe user extra | 진단 화면 이동 |
+| Main | 결과 | drawer `결과`, 최근 결과 card | `ResultActivity` | sample result | 결과 화면 이동 |
+| Main | 매장 | drawer `매장`, quick action | `MapActivity` | sample stores | 지도 화면 이동 |
+| Main | 설정 | drawer `설정` | `SettingsActivity` | safe user extra | 설정 화면 이동 |
+| Main | 로그아웃 | drawer `로그아웃` | `LoginActivity`로 이동 후 finish | Login 재표시 | 재로그인 가능 |
+| Diagnosis | 사진 선택 | 큰 업로드 card | action bottom sheet open | sheet 유지 | sheet 항목 확인 |
+| Diagnosis | camera | upload sheet `카메라` | camera preview | 권한/취소 안내 | 권한 거부/취소 |
+| Diagnosis | gallery | upload sheet `갤러리` | image picker | 취소 안내 | picker 취소 |
+| Diagnosis | sample | upload sheet `샘플로 체험` | sample preview | sample result | sample preview |
+| Diagnosis | analyze | preview `분석 시작` | Gemini or sample result save | `데모 결과로 이어서 보여드릴게요` | fallback result |
+| Result | save | top heart icon | saved state toggle | toast | 저장 icon 변화 |
+| Result | share | top overflow menu | `ACTION_SEND` chooser | 앱 없음 toast | chooser/fallback |
+| Result | map | 추천 섹션 card | `MapActivity` | sample stores | 지도 이동 |
+| Result | mypage save | bottom primary | `MyPageActivity` | safe user extra | 마이페이지 이동 |
+| Map | locate | top location icon | stores reload | 부산대 기준 안내 | fallback 안내 |
+| Map | filter | `전체`, `영업 중`, `저장` chips | in-memory filter | empty state | chip별 목록 |
+| Map | favorite | selected store card icon | Room favorite toggle | toast 유지 | 저장 chip 반영 |
+| Map | directions | selected store card icon | map URL intent 목표 | 앱 없음 toast | no crash |
+| MyPage | settings | top settings icon | `SettingsActivity` | safe user extra | 설정 이동 |
+| MyPage | tabs | `리포트`, `이력`, `매장` | tab state change | empty state | 세 탭 확인 |
+| MyPage | report share/save | overflow menu | share/save toast | 앱 없음 toast | overflow 확인 |
+| MyPage | history item | 이력 tab card | `ResultActivity` | sample result | 결과 이동 |
+| MyPage | store item | 매장 tab card | `MapActivity` | sample stores | 지도 이동 |
+| MyPage | redo | report primary | `DiagnosisActivity` | safe user extra | 진단 이동 |
+| Settings | 2FA test | 보안 section | `Digit2FaActivity` | model unavailable retry | 2FA 화면 이동 |
+| Settings | delete history | 진단 기록 section | user history delete | confirmation toast | MyPage 이력 갱신 |
+| Settings | clear favorites | 위치/매장 section | user favorites delete | confirmation toast | Map 저장 필터 |
+| Settings | logout | 계정 section | `LoginActivity`로 이동 후 finish | Login 재표시 | 재로그인 가능 |
 
 | 화면 | 현재 구현 사실 | HTML 1:1 목표 |
 | --- | --- | --- |
