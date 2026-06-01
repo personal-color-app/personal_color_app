@@ -24,7 +24,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.activity.compose.BackHandler
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
@@ -51,8 +50,7 @@ fun MainScreen(
     onMap: () -> Unit,
     onMyPage: () -> Unit,
     onResult: () -> Unit,
-    onNotice: () -> Unit,
-    onConsult: () -> Unit,
+    onSettings: () -> Unit,
     onLogout: () -> Unit,
 ) {
     val drawerState = rememberDrawerState(DrawerValue.Closed)
@@ -82,7 +80,7 @@ fun MainScreen(
                             }
                         }
                     }
-                    listOf("홈", "컬러 진단하기", "내 컬러 리포트", "근처 매장 찾기", "즐겨찾기 매장", "컬러 상담").forEach { item ->
+                    listOf("홈", "진단", "결과", "매장", "설정").forEach { item ->
                         Text(
                             item,
                             modifier = Modifier
@@ -90,10 +88,10 @@ fun MainScreen(
                                 .clickable {
                                     scope.launch { drawerState.close() }
                                     when (item) {
-                                        "컬러 진단하기" -> onDiagnosis()
-                                        "내 컬러 리포트" -> onResult()
-                                        "근처 매장 찾기", "즐겨찾기 매장" -> onMap()
-                                        "컬러 상담" -> onConsult()
+                                        "진단" -> onDiagnosis()
+                                        "결과" -> onResult()
+                                        "매장" -> onMap()
+                                        "설정" -> onSettings()
                                     }
                                 }
                                 .padding(vertical = 9.dp),
@@ -124,9 +122,6 @@ fun MainScreen(
                 onBack = { scope.launch { drawerState.open() } },
                 navigationIcon = Icons.Filled.Menu,
                 navigationContentDescription = "메뉴",
-                actionIcon = Icons.Filled.Notifications,
-                actionContentDescription = "알림",
-                onAction = onNotice,
             )
             Column(Modifier.padding(top = 2.dp, bottom = 4.dp)) {
                 Text("안녕하세요, ${user.displayName}님", color = OliveTextMid, fontSize = 13.sp, fontWeight = FontWeight.Medium)
@@ -147,9 +142,9 @@ fun MainScreen(
                     .padding(22.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Pill("AI 컬러 진단", selected = true)
+                Pill("컬러 진단", selected = true)
                 Text("사진 한 장으로\n나의 퍼스널 컬러 찾기", color = OliveCard, fontSize = 24.sp, lineHeight = 30.sp, fontWeight = FontWeight.Bold)
-                Text("평균 18초 · 정확도 92%", color = OliveCard.copy(alpha = 0.9f), fontSize = 12.sp)
+                Text("사진 기준으로 빠르게 분석", color = OliveCard.copy(alpha = 0.9f), fontSize = 12.sp)
                 Box(
                     Modifier
                         .background(Color.White, RoundedCornerShape(12.dp))

@@ -115,7 +115,7 @@ fun Digit2FaScreen(
         OliveButton("확인") { onSubmit(strokes.toBitmap(canvasSize)) }
         SecondaryButton("다시 그리기") { strokes.clear() }
         if (showDemoFallback) {
-            SecondaryButton("모델 준비 전 데모 통과") { onPassedByDemoFallback() }
+            SecondaryButton("인증 없이 계속하기") { onPassedByDemoFallback() }
         }
         Text("오류가 나도 앱은 종료되지 않고 다시 시도할 수 있습니다.", color = OliveText, fontWeight = FontWeight.Medium)
         Spacer(Modifier.height(4.dp))

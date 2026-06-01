@@ -2,24 +2,31 @@ package com.oliveme.app.data.repository
 
 import com.oliveme.app.util.UiText
 import java.util.UUID
+import kotlin.random.Random
 
 object DemoData {
-    fun demoUser() = UserProfile(
+    fun demoUser(displayName: String = UiText.DEMO_NAME) = UserProfile(
         userId = UiText.DEMO_USER_ID,
         email = UiText.DEMO_EMAIL,
-        displayName = UiText.DEMO_NAME,
+        displayName = displayName,
         loginProvider = "demo",
     )
 
     fun safeUser() = demoUser()
 
-    fun sampleResult(reason: String = "demo fallback") = PersonalColorResult(
+    fun randomDemoName(): String {
+        val tones = listOf("로즈", "라벤더", "플럼", "네이비", "베리", "올리브")
+        return "${tones.random()} ${Random.nextInt(100, 999)}"
+    }
+
+    @Suppress("UNUSED_PARAMETER")
+    fun sampleResult(reason: String = "demo") = PersonalColorResult(
         id = "sample-${UUID.randomUUID()}",
         type = "겨울 쿨톤",
         englishLabel = "WINTER · COOL · DEEP",
         matchScore = 92,
         description = "선명한 대비와 차가운 딥 컬러가 얼굴 윤곽을 또렷하게 살려주는 타입입니다.",
-        signature = "버건디, 네이비, 플럼처럼 깊고 차가운 색이 가장 안정적입니다. ($reason)",
+        signature = "버건디, 네이비, 플럼처럼 깊고 차가운 색이 가장 안정적입니다.",
         palette = listOf(
             ColorItem("#722F37", "와인"),
             ColorItem("#5B1A1F", "버건디"),

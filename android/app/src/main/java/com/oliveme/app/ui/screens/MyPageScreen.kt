@@ -19,11 +19,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -60,7 +61,6 @@ fun MyPageScreen(
     user: UserProfile,
     onBack: () -> Unit,
     onSettings: () -> Unit,
-    onEdit: () -> Unit,
     onSaveReport: () -> Unit,
     onShareReport: () -> Unit,
     onOpenResult: () -> Unit,
@@ -86,14 +86,14 @@ fun MyPageScreen(
             actionContentDescription = "설정",
             onAction = onSettings,
         )
-        ProfileHeader(user, state, onEdit)
+        ProfileHeader(user, state)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             StatCell("${state.history.size + 1}", "진단 횟수", Modifier.weight(1f))
-            StatCell("${latest.matchScore}%", "평균 정확도", Modifier.weight(1f))
-            StatCell("${state.favorites.size}", "즐겨찾기", Modifier.weight(1f))
+            StatCell("${latest.matchScore}%", "매칭도", Modifier.weight(1f))
+            StatCell("${state.favorites.size}", "저장 매장", Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("내 리포트", "진단 이력", "즐겨찾기 매장").forEachIndexed { index, label ->
+            listOf("리포트", "이력", "매장").forEachIndexed { index, label ->
                 Pill(label, selected = tab == index) { tab = index }
             }
         }
@@ -106,7 +106,7 @@ fun MyPageScreen(
 }
 
 @Composable
-private fun ProfileHeader(user: UserProfile, state: MyPageUiState, onEdit: () -> Unit) {
+private fun ProfileHeader(user: UserProfile, state: MyPageUiState) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -129,18 +129,6 @@ private fun ProfileHeader(user: UserProfile, state: MyPageUiState, onEdit: () ->
                 Pill("겨울 쿨톤", selected = true)
                 Pill("이력 ${state.history.size}")
             }
-        }
-        Row(
-            modifier = Modifier
-                .background(OliveCard, RoundedCornerShape(50))
-                .border(1.dp, OliveLine, RoundedCornerShape(50))
-                .clickable(onClick = onEdit)
-                .padding(horizontal = 11.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Icon(Icons.Filled.Edit, contentDescription = null, tint = OliveText, modifier = Modifier.size(14.dp))
-            Text("편집", color = OliveText, fontSize = 11.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -167,7 +155,32 @@ private fun ReportTab(
     onDiagnosis: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var menuOpen by remember { mutableIntStateOf(0) }
     LazyColumn(modifier = modifier, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        item {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("리포트 관리", color = OliveText, fontWeight = FontWeight.Bold)
+                IconButton(onClick = { menuOpen = 1 }) {
+                    Icon(Icons.Filled.MoreVert, contentDescription = "리포트 더보기", tint = OliveText)
+                }
+                DropdownMenu(expanded = menuOpen == 1, onDismissRequest = { menuOpen = 0 }) {
+                    DropdownMenuItem(
+                        text = { Text("리포트 저장") },
+                        onClick = {
+                            menuOpen = 0
+                            onSave()
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("공유") },
+                        onClick = {
+                            menuOpen = 0
+                            onShare()
+                        },
+                    )
+                }
+            }
+        }
         item {
             Column(
                 modifier = Modifier
@@ -192,12 +205,6 @@ private fun ReportTab(
                     Text("매칭 정확도", color = Color.White.copy(alpha = 0.82f), fontSize = 11.sp)
                     Text("${latest.matchScore}%", color = Color.White, fontFamily = FontFamily.Serif, fontSize = 20.sp)
                 }
-            }
-        }
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ReportAction("리포트 저장", Icons.Filled.FileDownload, Modifier.weight(1f), onSave)
-                ReportAction("공유", Icons.Filled.Share, Modifier.weight(1f), onShare)
             }
         }
         item {
@@ -242,31 +249,14 @@ private fun ReportTab(
 }
 
 @Composable
-private fun ReportAction(text: String, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier, onClick: () -> Unit) {
-    Row(
-        modifier = modifier
-            .height(46.dp)
-            .background(OliveCard, RoundedCornerShape(12.dp))
-            .border(1.dp, OliveLine, RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center,
-    ) {
-        Icon(icon, contentDescription = null, tint = OliveText, modifier = Modifier.size(16.dp))
-        Spacer(Modifier.size(6.dp))
-        Text(text, color = OliveText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-    }
-}
-
-@Composable
 private fun HistoryTab(state: MyPageUiState, onOpen: () -> Unit, modifier: Modifier = Modifier) {
     LazyColumn(modifier = modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
         if (state.history.isEmpty()) {
             item {
                 OliveCardBlock(Modifier.clickable(onClick = onOpen)) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("최신 샘플 리포트", color = OliveText, fontWeight = FontWeight.Bold)
-                        Text("저장된 진단이 없으면 샘플 결과를 열어 시연합니다.", color = OliveTextDim)
+                        Text("최근 리포트", color = OliveText, fontWeight = FontWeight.Bold)
+                        Text("저장된 진단이 없으면 최근 결과를 열어볼 수 있습니다.", color = OliveTextDim)
                     }
                 }
             }

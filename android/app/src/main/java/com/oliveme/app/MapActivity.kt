@@ -1,5 +1,7 @@
 package com.oliveme.app
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -35,7 +37,15 @@ class MapActivity : ComponentActivity() {
                         viewModel.toggleFavorite(user.userId, store)
                         Toast.makeText(this, "즐겨찾기 상태를 변경했습니다.", Toast.LENGTH_SHORT).show()
                     },
-                    onDirections = { Toast.makeText(this, "길찾기 연동은 준비 중입니다.", Toast.LENGTH_SHORT).show() },
+                    onDirections = { store ->
+                        val uri = store.placeUrl?.let(Uri::parse)
+                            ?: Uri.parse("geo:${store.lat ?: 0.0},${store.lng ?: 0.0}?q=${Uri.encode(store.name)}")
+                        runCatching {
+                            startActivity(Intent(Intent.ACTION_VIEW, uri))
+                        }.onFailure {
+                            Toast.makeText(this, "길찾기 앱을 찾지 못했습니다.", Toast.LENGTH_SHORT).show()
+                        }
+                    },
                 )
             }
         }

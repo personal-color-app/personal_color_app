@@ -34,10 +34,18 @@ class LoginViewModel : ViewModel() {
     val state: StateFlow<LoginUiState> = _state.asStateFlow()
 
     fun loginDemo(email: String, password: String) {
+        loginDemoInternal(email, password, null)
+    }
+
+    fun loginDemoWithRandomNickname() {
+        loginDemoInternal(UiText.DEMO_EMAIL, UiText.DEMO_PASSWORD, DemoData.randomDemoName())
+    }
+
+    private fun loginDemoInternal(email: String, password: String, displayName: String?) {
         viewModelScope.launch {
             _state.value = LoginUiState.Loading
             val result = withContext(Dispatchers.IO) {
-                AppGraph.loginRepository.loginDemo(email, password)
+                AppGraph.loginRepository.loginDemo(email, password, displayName)
             }
             result.fold(
                 onSuccess = { user ->
@@ -145,7 +153,7 @@ class DiagnosisViewModel : ViewModel() {
                 AppGraph.diagnosisRepository.analyzeAndSave(userId, bytes, uri?.toString())
             }
             _state.value = if (result.isFallback) {
-                DiagnosisUiState.Fallback(result, "Gemini 또는 이미지 처리 실패 시 샘플 결과를 사용했습니다.")
+                DiagnosisUiState.Fallback(result, "데모 결과로 이어서 보여드릴게요.")
             } else {
                 DiagnosisUiState.Success(result)
             }
@@ -167,7 +175,7 @@ class DiagnosisViewModel : ViewModel() {
                 AppGraph.diagnosisRepository.analyzeAndSave(userId, bytes, "camera-preview")
             }
             _state.value = if (result.isFallback) {
-                DiagnosisUiState.Fallback(result, "카메라 또는 Gemini 실패 시 샘플 결과를 사용했습니다.")
+                DiagnosisUiState.Fallback(result, "데모 결과로 이어서 보여드릴게요.")
             } else {
                 DiagnosisUiState.Success(result)
             }
@@ -251,5 +259,49 @@ class MyPageViewModel : ViewModel() {
             val favorites = withContext(Dispatchers.IO) { AppGraph.storeRepository.favorites(userId) }
             _state.value = MyPageUiState(history, favorites)
         }
+    }
+}
+
+data class SettingsUiState(
+    val historyCount: Int = 0,
+    val favoriteCount: Int = 0,
+    val busy: Boolean = false,
+    val message: String? = null,
+)
+
+class SettingsViewModel : ViewModel() {
+    private val _state = MutableStateFlow(SettingsUiState())
+    val state: StateFlow<SettingsUiState> = _state.asStateFlow()
+
+    fun load(userId: String) {
+        viewModelScope.launch {
+            val history = withContext(Dispatchers.IO) { AppGraph.diagnosisRepository.history(userId) }
+            val favorites = withContext(Dispatchers.IO) { AppGraph.storeRepository.favorites(userId) }
+            _state.value = _state.value.copy(
+                historyCount = history.size,
+                favoriteCount = favorites.size,
+                busy = false,
+            )
+        }
+    }
+
+    fun deleteHistory(userId: String) {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(busy = true, message = null)
+            withContext(Dispatchers.IO) { AppGraph.diagnosisRepository.deleteHistory(userId) }
+            _state.value = _state.value.copy(historyCount = 0, busy = false, message = "진단 기록을 정리했습니다.")
+        }
+    }
+
+    fun clearFavorites(userId: String) {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(busy = true, message = null)
+            withContext(Dispatchers.IO) { AppGraph.storeRepository.clearFavorites(userId) }
+            _state.value = _state.value.copy(favoriteCount = 0, busy = false, message = "저장한 매장을 비웠습니다.")
+        }
+    }
+
+    fun clearMessage() {
+        _state.value = _state.value.copy(message = null)
     }
 }
