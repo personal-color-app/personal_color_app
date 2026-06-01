@@ -1,5 +1,6 @@
 package com.oliveme.app.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -23,43 +24,82 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.oliveme.app.R
 import com.oliveme.app.data.repository.ColorItem
 import com.oliveme.app.ui.theme.OliveAccent
-import com.oliveme.app.ui.theme.OliveBg
+import com.oliveme.app.ui.theme.OliveAccentSoft
 import com.oliveme.app.ui.theme.OliveCard
 import com.oliveme.app.ui.theme.OliveLine
 import com.oliveme.app.ui.theme.OlivePrimary
 import com.oliveme.app.ui.theme.OlivePrimaryDeep
+import com.oliveme.app.ui.theme.OlivePrimarySoft
 import com.oliveme.app.ui.theme.OliveSecondary
 import com.oliveme.app.ui.theme.OliveText
 import com.oliveme.app.ui.theme.OliveTextDim
 import com.oliveme.app.ui.theme.OliveTextMid
 
+enum class OliveLogoVariant {
+    Full,
+    Mark,
+    Inline,
+}
+
 @Composable
-fun OliveLogo(modifier: Modifier = Modifier, compact: Boolean = false) {
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Box(
-            modifier = Modifier
-                .size(if (compact) 64.dp else 112.dp)
-                .background(
-                    Brush.linearGradient(listOf(OlivePrimary, OliveSecondary, OliveAccent)),
-                    CircleShape,
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text("O", color = OliveCard, fontWeight = FontWeight.Black, fontSize = if (compact) 32.sp else 56.sp)
+fun OliveLogo(
+    modifier: Modifier = Modifier,
+    compact: Boolean = false,
+    variant: OliveLogoVariant = if (compact) OliveLogoVariant.Inline else OliveLogoVariant.Full,
+) {
+    when (variant) {
+        OliveLogoVariant.Full -> {
+            Image(
+                painter = painterResource(R.drawable.oliveme_logo),
+                contentDescription = "OliveMe",
+                modifier = modifier.size(if (compact) 118.dp else 300.dp),
+                contentScale = ContentScale.Fit,
+            )
         }
-        Text("OliveMe", fontWeight = FontWeight.Bold, fontSize = if (compact) 24.sp else 42.sp, color = OliveText)
-        Text("Personal Color Beauty Companion", color = OliveTextDim, fontSize = 11.sp)
+        OliveLogoVariant.Mark -> {
+            Image(
+                painter = painterResource(R.drawable.oliveme_mark),
+                contentDescription = "OliveMe",
+                modifier = modifier.size(if (compact) 54.dp else 86.dp),
+                contentScale = ContentScale.Fit,
+            )
+        }
+        OliveLogoVariant.Inline -> {
+            Row(
+                modifier = modifier,
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Image(
+                    painter = painterResource(R.drawable.oliveme_mark),
+                    contentDescription = null,
+                    modifier = Modifier.size(if (compact) 34.dp else 44.dp),
+                    contentScale = ContentScale.Fit,
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    text = "OliveMe",
+                    color = Color(0xFF8B6B6F),
+                    fontSize = if (compact) 22.sp else 28.sp,
+                    fontFamily = FontFamily.Serif,
+                    fontWeight = FontWeight.Medium,
+                )
+            }
+        }
     }
 }
 
@@ -72,27 +112,39 @@ fun AppTopBar(
     onAction: (() -> Unit)? = null,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = navigationLabel ?: onBack?.let { "<" } ?: "☰",
             modifier = Modifier
-                .size(44.dp)
+                .size(48.dp)
                 .clickable { onBack?.invoke() },
             textAlign = TextAlign.Center,
             color = OliveText,
-            fontSize = 26.sp,
+            fontSize = if (onBack == null && navigationLabel == null) 30.sp else 24.sp,
+            fontWeight = FontWeight.SemiBold,
         )
-        Text(title, fontWeight = FontWeight.Bold, color = OliveText, fontSize = 18.sp)
+        if (title == "OliveMe") {
+            OliveLogo(
+                modifier = Modifier.width(142.dp),
+                compact = true,
+                variant = OliveLogoVariant.Inline,
+            )
+        } else {
+            Text(title, fontWeight = FontWeight.Bold, color = OliveText, fontSize = 20.sp)
+        }
         Text(
             action ?: " ",
             modifier = Modifier
-                .size(44.dp)
-                .clickable { onAction?.invoke() },
+                .size(48.dp)
+                .clickable(enabled = onAction != null) { onAction?.invoke() },
             textAlign = TextAlign.Center,
             color = OlivePrimaryDeep,
+            fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
         )
     }
@@ -102,9 +154,9 @@ fun AppTopBar(
 fun OliveCardBlock(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = OliveCard),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
     ) {
         Box(Modifier.padding(18.dp)) {
             content()
@@ -122,8 +174,24 @@ fun OliveButton(text: String, modifier: Modifier = Modifier, enabled: Boolean = 
             .height(52.dp),
         shape = RoundedCornerShape(14.dp),
         colors = ButtonDefaults.buttonColors(containerColor = OlivePrimaryDeep, contentColor = OliveCard),
+        elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
     ) {
-        Text(text, fontWeight = FontWeight.Bold)
+        Text(text, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+    }
+}
+
+@Composable
+fun KakaoButton(text: String, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier
+            .fillMaxWidth()
+            .height(52.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFEE500), contentColor = Color(0xFF181600)),
+    ) {
+        Text(text, fontWeight = FontWeight.Bold, fontSize = 15.sp)
     }
 }
 
@@ -147,24 +215,58 @@ fun Pill(text: String, selected: Boolean = false, onClick: (() -> Unit)? = null)
     Text(
         text = text,
         modifier = Modifier
-            .background(if (selected) OlivePrimary else Color.White, RoundedCornerShape(50))
-            .border(1.dp, if (selected) OlivePrimaryDeep else OliveLine, RoundedCornerShape(50))
+            .background(if (selected) OlivePrimary else OlivePrimarySoft, RoundedCornerShape(50))
+            .border(1.dp, if (selected) OlivePrimaryDeep else Color.Transparent, RoundedCornerShape(50))
             .clickable(enabled = onClick != null) { onClick?.invoke() }
             .padding(horizontal = 13.dp, vertical = 8.dp),
-        color = if (selected) Color.White else OliveTextMid,
+        color = if (selected) Color.White else OlivePrimaryDeep,
         fontSize = 12.sp,
         fontWeight = FontWeight.Bold,
     )
 }
 
 @Composable
-fun SwatchRow(colors: List<ColorItem>) {
+fun PastelIconTile(
+    label: String,
+    sub: String,
+    modifier: Modifier = Modifier,
+    color: Color = OlivePrimarySoft,
+    accent: Color = OlivePrimaryDeep,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = modifier
+            .background(OliveCard, RoundedCornerShape(16.dp))
+            .border(1.dp, Color(0xFFF5ECE5), RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(38.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(color),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(label.take(1), color = accent, fontWeight = FontWeight.Black)
+        }
+        Column {
+            Text(label, color = OliveText, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            Text(sub, color = OliveTextDim, fontSize = 10.sp)
+        }
+    }
+}
+
+@Composable
+fun SwatchRow(colors: List<ColorItem>, swatchSize: Dp = 42.dp) {
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         colors.forEach { item ->
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Box(
                     modifier = Modifier
-                        .size(42.dp)
+                        .size(swatchSize)
                         .background(safeComposeColor(item.hex), CircleShape)
                         .border(2.dp, Color.White, CircleShape),
                 )
@@ -175,5 +277,12 @@ fun SwatchRow(colors: List<ColorItem>) {
     }
 }
 
+fun heroGradient(): Brush = Brush.linearGradient(listOf(OlivePrimary, OliveSecondary))
+
+fun softBeautyGradient(): Brush = Brush.linearGradient(listOf(Color(0xFFFDF4F0), Color(0xFFF5EDF8), Color(0xFFFDEFE4)))
+
 fun safeComposeColor(hex: String): Color =
-    runCatching { Color(android.graphics.Color.parseColor(hex)) }.getOrDefault(OlivePrimary)
+    runCatching { Color(android.graphics.Color.parseColor(hex)) }.getOrDefault(OliveAccent)
+
+val QuickActionLavender = OliveSecondary
+val QuickActionGold = OliveAccentSoft

@@ -18,18 +18,27 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.oliveme.app.Digit2FaUiState
+import com.oliveme.app.ui.theme.OliveBg
 import com.oliveme.app.ui.theme.OliveBgSoft
 import com.oliveme.app.ui.theme.OlivePrimaryDeep
+import com.oliveme.app.ui.theme.OliveText
 import com.oliveme.app.ui.theme.OliveTextDim
 import com.oliveme.app.ui.theme.OliveTextMid
 
@@ -39,18 +48,21 @@ fun Digit2FaScreen(
     state: Digit2FaUiState,
     onSubmit: (Bitmap) -> Unit,
     onPassedByDemoFallback: () -> Unit,
+    showDemoFallback: Boolean = false,
 ) {
     val strokes = remember { mutableStateListOf<MutableList<Offset>>() }
+    var canvasSize by remember { mutableStateOf(IntSize.Zero) }
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(22.dp),
+            .background(OliveBg)
+            .padding(horizontal = 22.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         AppTopBar("2차 인증")
         OliveCardBlock {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("등록 숫자 $expectedDigit 를 손으로 그려주세요.", color = OliveTextMid)
+                Text("등록 숫자 $expectedDigit 를 손으로 그려주세요.", color = OliveTextMid, fontSize = 18.sp)
                 Text("데모 계정은 숫자 1이 등록되어 있습니다.", color = OliveTextDim)
             }
         }
@@ -59,10 +71,14 @@ fun Digit2FaScreen(
                 .fillMaxWidth()
                 .height(320.dp)
                 .background(OliveBgSoft, RoundedCornerShape(24.dp))
+                .onSizeChanged { canvasSize = it }
                 .pointerInput(Unit) {
                     detectDragGestures(
                         onDragStart = { offset -> strokes.add(mutableListOf(offset)) },
-                        onDrag = { change, _ -> strokes.lastOrNull()?.add(change.position) },
+                        onDrag = { change, _ ->
+                            strokes.lastOrNull()?.add(change.position)
+                            change.consume()
+                        },
                     )
                 },
         ) {
@@ -84,19 +100,24 @@ fun Digit2FaScreen(
         }
         when (state) {
             Digit2FaUiState.Checking -> Text("숫자를 판정하는 중...", color = OliveTextDim)
-            is Digit2FaUiState.Failed -> Text("${state.message} (시도 ${state.attempts})", color = OlivePrimaryDeep)
+            is Digit2FaUiState.Failed -> Text("${state.message} (시도 ${state.attempts})", color = OlivePrimaryDeep, fontSize = 18.sp, lineHeight = 26.sp)
             is Digit2FaUiState.Passed -> Text("인증 성공: ${state.prediction}, ${"%.0f".format(state.confidence * 100)}%", color = OlivePrimaryDeep)
-            Digit2FaUiState.Ready -> Text(" ", color = OliveTextDim)
+            Digit2FaUiState.Ready -> Text("숫자를 크게, 한 획으로 그리면 더 잘 인식됩니다.", color = OliveTextDim)
         }
-        OliveButton("확인") { onSubmit(strokes.toBitmap()) }
+        OliveButton("확인") { onSubmit(strokes.toBitmap(canvasSize)) }
         SecondaryButton("다시 그리기") { strokes.clear() }
-        SecondaryButton("모델 준비 전 데모 통과") { onPassedByDemoFallback() }
+        if (showDemoFallback) {
+            SecondaryButton("모델 준비 전 데모 통과") { onPassedByDemoFallback() }
+        }
+        Text("오류가 나도 앱은 종료되지 않고 다시 시도할 수 있습니다.", color = OliveText, fontWeight = FontWeight.Medium)
         Spacer(Modifier.height(4.dp))
     }
 }
 
-private fun List<List<Offset>>.toBitmap(): Bitmap {
-    val bitmap = Bitmap.createBitmap(320, 320, Bitmap.Config.ARGB_8888)
+private fun List<List<Offset>>.toBitmap(size: IntSize): Bitmap {
+    val width = size.width.takeIf { it > 0 } ?: 320
+    val height = size.height.takeIf { it > 0 } ?: 320
+    val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
     val canvas = AndroidCanvas(bitmap)
     canvas.drawColor(Color.WHITE)
     val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {

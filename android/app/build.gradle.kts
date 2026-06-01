@@ -98,7 +98,7 @@ dependencies {
 
     implementation("com.kakao.sdk:v2-user:2.20.6")
     implementation("com.kakao.maps.open:android:2.13.2")
-    implementation("org.tensorflow:tensorflow-lite:2.16.1")
+    implementation("org.tensorflow:tensorflow-lite:2.17.0")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")

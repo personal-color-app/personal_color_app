@@ -3,6 +3,7 @@ package com.oliveme.app.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -10,9 +11,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
@@ -20,19 +21,24 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.activity.compose.BackHandler
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.oliveme.app.data.repository.DemoData
 import com.oliveme.app.data.repository.UserProfile
+import com.oliveme.app.ui.theme.OliveAccent
+import com.oliveme.app.ui.theme.OliveAccentSoft
+import com.oliveme.app.ui.theme.OliveBg
 import com.oliveme.app.ui.theme.OliveCard
-import com.oliveme.app.ui.theme.OlivePrimary
 import com.oliveme.app.ui.theme.OlivePrimaryDeep
-import com.oliveme.app.ui.theme.OliveSecondary
+import com.oliveme.app.ui.theme.OliveSecondarySoft
 import com.oliveme.app.ui.theme.OliveText
 import com.oliveme.app.ui.theme.OliveTextDim
+import com.oliveme.app.ui.theme.OliveTextMid
 import kotlinx.coroutines.launch
 
 @Composable
@@ -45,23 +51,55 @@ fun MainScreen(
 ) {
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+    val recent = DemoData.sampleResult("main")
+    BackHandler(enabled = drawerState.isOpen) {
+        scope.launch { drawerState.close() }
+    }
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
-            ModalDrawerSheet {
-                Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    OliveLogo(compact = true)
-                    listOf("홈", "AI 진단", "리포트", "지도", "즐겨찾기 매장", "설정").forEach { item ->
-                        Text(item, modifier = Modifier.fillMaxWidth().clickable {
-                            scope.launch { drawerState.close() }
-                            when (item) {
-                                "AI 진단" -> onDiagnosis()
-                                "리포트" -> onMyPage()
-                                "지도" -> onMap()
+            ModalDrawerSheet(drawerContainerColor = OliveBg) {
+                Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    OliveLogo(compact = true, variant = OliveLogoVariant.Inline)
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .background(softBeautyGradient(), RoundedCornerShape(22.dp))
+                            .padding(18.dp),
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(user.displayName, color = OliveText, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                            Text(user.email, color = OliveTextMid, fontSize = 12.sp)
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Pill("겨울 쿨톤", selected = true)
+                                Pill("진단 3회")
                             }
-                        }.padding(vertical = 8.dp), color = OliveText, fontWeight = FontWeight.SemiBold)
+                        }
                     }
-                    Text("로그아웃", modifier = Modifier.clickable(onClick = onLogout).padding(vertical = 8.dp), color = OlivePrimaryDeep)
+                    listOf("홈", "컬러 진단하기", "내 컬러 리포트", "근처 매장 찾기", "즐겨찾기 매장", "컬러 상담").forEach { item ->
+                        Text(
+                            item,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    scope.launch { drawerState.close() }
+                                    when (item) {
+                                        "컬러 진단하기" -> onDiagnosis()
+                                        "내 컬러 리포트" -> onMyPage()
+                                        "근처 매장 찾기", "즐겨찾기 매장" -> onMap()
+                                    }
+                                }
+                                .padding(vertical = 9.dp),
+                            color = OliveText,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                    Text(
+                        "로그아웃",
+                        modifier = Modifier.clickable(onClick = onLogout).padding(vertical = 8.dp),
+                        color = OlivePrimaryDeep,
+                        fontWeight = FontWeight.Bold,
+                    )
                 }
             }
         },
@@ -69,51 +107,69 @@ fun MainScreen(
         Column(
             Modifier
                 .fillMaxSize()
-                .padding(20.dp),
+                .background(OliveBg)
+                .padding(horizontal = 20.dp)
+                .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             AppTopBar("OliveMe", onBack = { scope.launch { drawerState.open() } }, navigationLabel = "☰", action = "♡")
-            Text("${user.displayName}님,\n오늘의 컬러를 찾아볼까요?", color = OliveText, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Column(Modifier.padding(top = 2.dp, bottom = 4.dp)) {
+                Text("안녕하세요, ${user.displayName}님", color = OliveTextMid, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                Text(
+                    "오늘의 컬러를\n발견해볼까요?",
+                    color = OliveText,
+                    fontSize = 28.sp,
+                    lineHeight = 34.sp,
+                    fontFamily = FontFamily.Serif,
+                    fontWeight = FontWeight.Medium,
+                )
+            }
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Brush.linearGradient(listOf(OlivePrimary, OliveSecondary)), RoundedCornerShape(24.dp))
+                    .background(heroGradient(), RoundedCornerShape(24.dp))
                     .clickable(onClick = onDiagnosis)
                     .padding(22.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Text("AI PERSONAL COLOR", color = OliveCard, fontSize = 12.sp)
-                Text("사진 한 장으로\n나의 퍼스널 컬러 찾기", color = OliveCard, fontSize = 26.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(12.dp))
-                Text("진단 시작하기 ->", color = OliveCard, fontWeight = FontWeight.Bold)
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                QuickAction("가까운 매장", "지도에서 보기", Modifier.weight(1f), onMap)
-                QuickAction("마이 리포트", "저장 결과", Modifier.weight(1f), onMyPage)
-            }
-            OliveCardBlock {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("최근 진단", color = OliveTextDim)
-                    Text(DemoData.sampleResult("main").type, color = OliveText, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-                    SwatchRow(DemoData.sampleResult("main").palette.take(5))
+                Pill("AI 컬러 진단", selected = true)
+                Text("사진 한 장으로\n나의 퍼스널 컬러 찾기", color = OliveCard, fontSize = 24.sp, lineHeight = 30.sp, fontWeight = FontWeight.Bold)
+                Text("평균 18초 · 정확도 92%", color = OliveCard.copy(alpha = 0.9f), fontSize = 12.sp)
+                Box(
+                    Modifier
+                        .background(Color.White, RoundedCornerShape(12.dp))
+                        .padding(horizontal = 16.dp, vertical = 11.dp),
+                ) {
+                    Text("지금 진단 시작 ->", color = OlivePrimaryDeep, fontWeight = FontWeight.Bold)
                 }
             }
-            Text("Color Story", color = OliveText, fontWeight = FontWeight.Bold)
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(listOf("쿨톤 립 가이드", "겨울 딥 아우터", "올리브영 추천템")) { label ->
-                    Pill(label)
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                PastelIconTile("근처 매장", "2.4km 이내 7곳", Modifier.weight(1f), OliveSecondarySoft, OlivePrimaryDeep, onMap)
+                PastelIconTile("마이페이지", "진단 이력 3건", Modifier.weight(1f), OliveAccentSoft, OliveAccent, onMyPage)
+            }
+            Text("최근 진단 결과", color = OliveText, fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, fontSize = 19.sp)
+            OliveCardBlock(Modifier.clickable(onClick = onMyPage)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Box(
+                        Modifier
+                            .height(104.dp)
+                            .fillMaxWidth(0.26f)
+                            .background(heroGradient(), RoundedCornerShape(14.dp)),
+                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("2026.05.18", color = OliveTextDim, fontSize = 11.sp)
+                        Text(recent.type, color = OliveText, fontSize = 20.sp, fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold)
+                        Text(recent.description, color = OliveTextMid, fontSize = 12.sp, lineHeight = 17.sp)
+                        SwatchRow(recent.palette.take(5), swatchSize = 20.dp)
+                    }
                 }
+            }
+            Text("오늘의 컬러 스토리", color = OliveText, fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, fontSize = 19.sp)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("쿨톤 립 가이드", "겨울 딥 아우터", "올리브영 추천템").forEach { label -> Pill(label) }
             }
             LegacyJetpackEvidence()
-        }
-    }
-}
-
-@Composable
-private fun QuickAction(title: String, subtitle: String, modifier: Modifier, onClick: () -> Unit) {
-    OliveCardBlock(modifier.clickable(onClick = onClick)) {
-        Column {
-            Text(title, color = OliveText, fontWeight = FontWeight.Bold)
-            Text(subtitle, color = OliveTextDim, fontSize = 12.sp)
+            Spacer(Modifier.height(18.dp))
         }
     }
 }

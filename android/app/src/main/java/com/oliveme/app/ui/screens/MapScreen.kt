@@ -19,11 +19,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.oliveme.app.MapUiState
 import com.oliveme.app.data.repository.OliveStore
 import com.oliveme.app.ui.theme.OliveBgSoft
+import com.oliveme.app.ui.theme.OliveBg
 import com.oliveme.app.ui.theme.OlivePrimary
 import com.oliveme.app.ui.theme.OlivePrimaryDeep
 import com.oliveme.app.ui.theme.OliveSecondary
@@ -35,6 +37,7 @@ fun MapScreen(state: MapUiState, onBack: () -> Unit, onSelect: (OliveStore) -> U
     Column(
         Modifier
             .fillMaxSize()
+            .background(OliveBg)
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
@@ -46,7 +49,17 @@ fun MapScreen(state: MapUiState, onBack: () -> Unit, onSelect: (OliveStore) -> U
                 .background(Brush.linearGradient(listOf(OliveSecondary, OliveBgSoft)), RoundedCornerShape(26.dp)),
             contentAlignment = Alignment.Center,
         ) {
-            Text("Mock Map / Kakao Map fallback", color = OliveTextDim)
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("Kakao Map", color = OliveText, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    "지도를 불러오지 못하면\n샘플 매장을 표시합니다",
+                    color = OliveTextDim,
+                    fontSize = 12.sp,
+                    lineHeight = 18.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 24.dp),
+                )
+            }
         }
         state.fallbackReason?.let { Text(it, color = OlivePrimaryDeep) }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

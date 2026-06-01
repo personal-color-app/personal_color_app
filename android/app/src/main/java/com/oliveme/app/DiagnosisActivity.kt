@@ -1,5 +1,7 @@
 package com.oliveme.app
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -7,6 +9,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.core.content.ContextCompat
 import com.oliveme.app.data.repository.AppGraph
 import com.oliveme.app.ui.screens.DiagnosisScreen
 import com.oliveme.app.ui.theme.OliveMeTheme
@@ -23,6 +26,14 @@ class DiagnosisActivity : ComponentActivity() {
         viewModel.analyzeBitmap(user.userId, bitmap)
     }
 
+    private val cameraPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) {
+            launchCameraSafely()
+        } else {
+            viewModel.cameraUnavailable("카메라 권한이 거부되었습니다. 갤러리를 사용하거나 권한을 허용해주세요.")
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         AppGraph.init(this)
@@ -32,7 +43,7 @@ class DiagnosisActivity : ComponentActivity() {
                 DiagnosisScreen(
                     state = state,
                     onBack = { finish() },
-                    onCamera = { cameraLauncher.launch(null) },
+                    onCamera = { launchCameraSafely() },
                     onGallery = { galleryLauncher.launch("image/*") },
                     onAnalyze = {
                         val preview = state as? DiagnosisUiState.Preview
@@ -41,6 +52,18 @@ class DiagnosisActivity : ComponentActivity() {
                     onResult = { startActivity(resultIntent(user)) },
                 )
             }
+        }
+    }
+
+    private fun launchCameraSafely() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+            return
+        }
+        runCatching {
+            cameraLauncher.launch(null)
+        }.onFailure {
+            viewModel.cameraUnavailable("카메라 앱을 열 수 없습니다. 갤러리를 사용해주세요.")
         }
     }
 }

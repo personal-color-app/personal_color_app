@@ -1,5 +1,6 @@
 package com.oliveme.app.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,6 +22,7 @@ import com.oliveme.app.MyPageUiState
 import com.oliveme.app.data.repository.DemoData
 import com.oliveme.app.data.repository.UserProfile
 import com.oliveme.app.ui.theme.OlivePrimaryDeep
+import com.oliveme.app.ui.theme.OliveBg
 import com.oliveme.app.ui.theme.OliveText
 import com.oliveme.app.ui.theme.OliveTextDim
 
@@ -30,6 +32,7 @@ fun MyPageScreen(state: MyPageUiState, user: UserProfile, onBack: () -> Unit, on
     Column(
         Modifier
             .fillMaxSize()
+            .background(OliveBg)
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {

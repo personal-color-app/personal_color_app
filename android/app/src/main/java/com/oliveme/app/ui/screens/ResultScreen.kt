@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import com.oliveme.app.ResultUiState
 import com.oliveme.app.data.repository.ProductRecommendation
 import com.oliveme.app.ui.theme.OliveCard
+import com.oliveme.app.ui.theme.OliveBg
 import com.oliveme.app.ui.theme.OlivePrimaryDeep
 import com.oliveme.app.ui.theme.OliveSecondary
 import com.oliveme.app.ui.theme.OliveText
@@ -49,6 +50,7 @@ fun ResultScreen(
     Column(
         Modifier
             .fillMaxSize()
+            .background(OliveBg)
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
@@ -59,22 +61,30 @@ fun ResultScreen(
             }
         }
         when (page) {
-            0 -> TypePage(result.type, result.englishLabel, result.matchScore, result.description, result.palette, result.avoidColors)
-            1 -> ProductPage("Clothes", result.clothes)
-            2 -> ProductPage("Makeup", result.makeup.values.flatten())
-            else -> TraitsPage(result.traits, result.keywords, result.signature)
+            0 -> TypePage(result.type, result.englishLabel, result.matchScore, result.description, result.palette, result.avoidColors, Modifier.weight(1f))
+            1 -> ProductPage("Clothes", result.clothes, Modifier.weight(1f))
+            2 -> ProductPage("Makeup", result.makeup.values.flatten(), Modifier.weight(1f))
+            else -> TraitsPage(result.traits, result.keywords, result.signature, Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             SecondaryButton("근처 매장", Modifier.weight(1f), onMap)
-            SecondaryButton("마이페이지", Modifier.weight(1f), onMyPage)
+            OliveButton("마이페이지", Modifier.weight(1f), onClick = onMyPage)
         }
         LegacyJetpackEvidence()
     }
 }
 
 @Composable
-private fun TypePage(type: String, label: String, score: Int, description: String, palette: List<com.oliveme.app.data.repository.ColorItem>, avoid: List<com.oliveme.app.data.repository.ColorItem>) {
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+private fun TypePage(
+    type: String,
+    label: String,
+    score: Int,
+    description: String,
+    palette: List<com.oliveme.app.data.repository.ColorItem>,
+    avoid: List<com.oliveme.app.data.repository.ColorItem>,
+    modifier: Modifier = Modifier,
+) {
+    LazyColumn(modifier = modifier, verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
             Box(
                 modifier = Modifier
@@ -85,9 +95,9 @@ private fun TypePage(type: String, label: String, score: Int, description: Strin
                 contentAlignment = Alignment.BottomStart,
             ) {
                 Column {
-                    Text(label, color = OliveCard)
-                    Text(type, color = OliveCard, fontSize = 30.sp, fontWeight = FontWeight.Bold)
-                    Text("match $score%", color = OliveCard)
+                    Text(label, color = OliveCard, fontSize = 12.sp)
+                    Text(type, color = OliveCard, fontSize = 32.sp, fontWeight = FontWeight.Bold)
+                    Text("매칭 정확도 $score%", color = OliveCard)
                 }
             }
         }
@@ -106,8 +116,8 @@ private fun TypePage(type: String, label: String, score: Int, description: Strin
 }
 
 @Composable
-private fun ProductPage(title: String, items: List<ProductRecommendation>) {
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+private fun ProductPage(title: String, items: List<ProductRecommendation>, modifier: Modifier = Modifier) {
+    LazyColumn(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item { Text(title, color = OliveText, fontSize = 22.sp, fontWeight = FontWeight.Bold) }
         items(items) { product ->
             OliveCardBlock {
@@ -130,8 +140,8 @@ private fun ProductPage(title: String, items: List<ProductRecommendation>) {
 }
 
 @Composable
-private fun TraitsPage(traits: List<String>, keywords: List<String>, signature: String) {
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+private fun TraitsPage(traits: List<String>, keywords: List<String>, signature: String, modifier: Modifier = Modifier) {
+    LazyColumn(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             OliveCardBlock {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

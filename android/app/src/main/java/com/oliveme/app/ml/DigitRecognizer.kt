@@ -4,8 +4,6 @@ import android.content.Context
 import android.graphics.Bitmap
 import org.tensorflow.lite.Interpreter
 import java.io.FileInputStream
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
 import java.nio.MappedByteBuffer
 import java.nio.channels.FileChannel
 
@@ -25,11 +23,12 @@ class DigitRecognizer(private val context: Context) {
     private var modelLoadError: String? = null
 
     fun classify(bitmap: Bitmap): DigitPrediction {
+        val input = DigitPreprocessor.toInputBuffer(bitmap)
+            ?: return DigitPrediction.unavailable("숫자를 그려주세요.")
         val tflite = getInterpreter() ?: return DigitPrediction.unavailable(
             modelLoadError ?: "숫자 인식 모델을 불러오지 못했습니다.",
         )
         return runCatching {
-            val input = bitmap.toMnistInput()
             val output = Array(1) { FloatArray(10) }
             tflite.run(input, output)
             val scores = output[0]
@@ -59,21 +58,5 @@ class DigitRecognizer(private val context: Context) {
                 descriptor.declaredLength,
             )
         }
-    }
-
-    private fun Bitmap.toMnistInput(): ByteBuffer {
-        val scaled = Bitmap.createScaledBitmap(this, 28, 28, true)
-        val buffer = ByteBuffer.allocateDirect(4 * 28 * 28).order(ByteOrder.nativeOrder())
-        val pixels = IntArray(28 * 28)
-        scaled.getPixels(pixels, 0, 28, 0, 0, 28, 28)
-        pixels.forEach { pixel ->
-            val r = (pixel shr 16) and 0xFF
-            val g = (pixel shr 8) and 0xFF
-            val b = pixel and 0xFF
-            val luminance = (0.299f * r + 0.587f * g + 0.114f * b) / 255f
-            buffer.putFloat(1f - luminance)
-        }
-        buffer.rewind()
-        return buffer
     }
 }

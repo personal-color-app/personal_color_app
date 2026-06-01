@@ -89,7 +89,7 @@ class Digit2FaViewModel : ViewModel() {
                 attempts += 1
                 // Future policy hook: add maxAttempts here if the unlimited retry policy changes.
                 _state.value = Digit2FaUiState.Failed(
-                    "숫자 인식 모델을 사용할 수 없어 다시 시도해주세요. 학습 스크립트로 모델을 생성하면 실제 판정이 활성화됩니다.",
+                    prediction.message ?: "숫자 인식 모델을 사용할 수 없어 다시 시도해주세요.",
                     attempts,
                 )
                 return@launch
@@ -110,7 +110,7 @@ class Digit2FaViewModel : ViewModel() {
 }
 
 sealed interface DiagnosisUiState {
-    data object ChoosePhoto : DiagnosisUiState
+    data class ChoosePhoto(val notice: String? = null) : DiagnosisUiState
     data class Preview(val uri: Uri) : DiagnosisUiState
     data class Analyzing(val step: Int) : DiagnosisUiState
     data class Success(val result: PersonalColorResult) : DiagnosisUiState
@@ -118,11 +118,16 @@ sealed interface DiagnosisUiState {
 }
 
 class DiagnosisViewModel : ViewModel() {
-    private val _state = MutableStateFlow<DiagnosisUiState>(DiagnosisUiState.ChoosePhoto)
+    private val _state = MutableStateFlow<DiagnosisUiState>(DiagnosisUiState.ChoosePhoto())
     val state: StateFlow<DiagnosisUiState> = _state.asStateFlow()
 
     fun preview(uri: Uri?) {
-        _state.value = uri?.let { DiagnosisUiState.Preview(it) } ?: DiagnosisUiState.ChoosePhoto
+        _state.value = uri?.let { DiagnosisUiState.Preview(it) }
+            ?: DiagnosisUiState.ChoosePhoto("사진 선택이 취소되었습니다. 다시 선택해주세요.")
+    }
+
+    fun cameraUnavailable(message: String) {
+        _state.value = DiagnosisUiState.ChoosePhoto(message)
     }
 
     fun analyze(context: Context, userId: String, uri: Uri?) {
@@ -146,14 +151,16 @@ class DiagnosisViewModel : ViewModel() {
     }
 
     fun analyzeBitmap(userId: String, bitmap: Bitmap?) {
+        if (bitmap == null) {
+            _state.value = DiagnosisUiState.ChoosePhoto("카메라 촬영이 취소되었습니다. 다시 시도해주세요.")
+            return
+        }
         viewModelScope.launch {
             _state.value = DiagnosisUiState.Analyzing(1)
             val bytes = withContext(Dispatchers.IO) {
-                bitmap?.let {
-                    ByteArrayOutputStream().use { output ->
-                        it.compress(Bitmap.CompressFormat.JPEG, 82, output)
-                        output.toByteArray()
-                    }
+                ByteArrayOutputStream().use { output ->
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 82, output)
+                    output.toByteArray()
                 }
             }
             _state.value = DiagnosisUiState.Analyzing(2)
