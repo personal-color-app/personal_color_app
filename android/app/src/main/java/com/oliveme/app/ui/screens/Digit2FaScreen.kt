@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -46,6 +48,7 @@ import com.oliveme.app.ui.theme.OliveTextMid
 fun Digit2FaScreen(
     expectedDigit: Int,
     state: Digit2FaUiState,
+    onBack: () -> Unit,
     onSubmit: (Bitmap) -> Unit,
     onPassedByDemoFallback: () -> Unit,
     showDemoFallback: Boolean = false,
@@ -59,7 +62,12 @@ fun Digit2FaScreen(
             .padding(horizontal = 22.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        AppTopBar("2차 인증")
+        AppTopBar(
+            "2차 인증",
+            onBack = onBack,
+            navigationIcon = Icons.Filled.ArrowBack,
+            navigationContentDescription = "뒤로",
+        )
         OliveCardBlock {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("등록 숫자 $expectedDigit 를 손으로 그려주세요.", color = OliveTextMid, fontSize = 18.sp)

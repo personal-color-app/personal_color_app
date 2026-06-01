@@ -3,6 +3,7 @@ package com.oliveme.app
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -43,8 +44,10 @@ class DiagnosisActivity : ComponentActivity() {
                 DiagnosisScreen(
                     state = state,
                     onBack = { finish() },
+                    onHelp = { Toast.makeText(this, "밝은 곳에서 정면 얼굴을 필터 없이 촬영해주세요.", Toast.LENGTH_LONG).show() },
                     onCamera = { launchCameraSafely() },
                     onGallery = { galleryLauncher.launch("image/*") },
+                    onSample = { viewModel.previewSample() },
                     onAnalyze = {
                         val preview = state as? DiagnosisUiState.Preview
                         viewModel.analyze(this, user.userId, preview?.uri)

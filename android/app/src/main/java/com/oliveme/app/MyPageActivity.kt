@@ -1,6 +1,8 @@
 package com.oliveme.app
 
 import android.os.Bundle
+import android.content.Intent
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
@@ -25,9 +27,30 @@ class MyPageActivity : ComponentActivity() {
                     state = state,
                     user = user,
                     onBack = { finish() },
+                    onSettings = { Toast.makeText(this, "설정 화면은 준비 중입니다.", Toast.LENGTH_SHORT).show() },
+                    onEdit = { Toast.makeText(this, "프로필 편집은 준비 중입니다.", Toast.LENGTH_SHORT).show() },
+                    onSaveReport = { Toast.makeText(this, "리포트를 저장했습니다.", Toast.LENGTH_SHORT).show() },
+                    onShareReport = { shareReport() },
+                    onOpenResult = { startActivity(resultIntent(user)) },
+                    onOpenStore = { startActivity(mapIntent(user)) },
+                    onMap = { startActivity(mapIntent(user)) },
                     onDiagnosis = { startActivity(diagnosisIntent(user)) },
                 )
             }
+        }
+    }
+
+    private fun shareReport() {
+        val result = com.oliveme.app.data.repository.DemoData.sampleResult("mypage share")
+        val send = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_SUBJECT, "OliveMe 리포트")
+            putExtra(Intent.EXTRA_TEXT, "나의 OliveMe 리포트: ${result.type}\n${result.signature}")
+        }
+        runCatching {
+            startActivity(Intent.createChooser(send, "리포트 공유"))
+        }.onFailure {
+            Toast.makeText(this, "공유할 수 있는 앱을 찾지 못했습니다.", Toast.LENGTH_SHORT).show()
         }
     }
 }

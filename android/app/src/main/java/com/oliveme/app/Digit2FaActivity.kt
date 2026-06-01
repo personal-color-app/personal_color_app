@@ -31,11 +31,13 @@ class Digit2FaActivity : ComponentActivity() {
                 Digit2FaScreen(
                     expectedDigit = expectedDigit,
                     state = state,
+                    onBack = { finish() },
                     onSubmit = { bitmap -> viewModel.check(this, bitmap, expectedDigit) },
                     onPassedByDemoFallback = {
                         startActivity(mainIntent(user))
                         finish()
                     },
+                    showDemoFallback = (state as? Digit2FaUiState.Failed)?.message?.contains("모델") == true,
                 )
             }
         }

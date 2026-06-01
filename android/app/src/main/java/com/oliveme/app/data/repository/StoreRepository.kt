@@ -51,6 +51,12 @@ class StoreRepository(
         }
     }
 
+    suspend fun removeFavorite(userId: String, storeId: String) {
+        runCatching {
+            dao.deleteFavoriteStore(userId, storeId)
+        }
+    }
+
     suspend fun favorites(userId: String): List<OliveStore> =
         runCatching {
             dao.getFavoriteStores(userId).map {

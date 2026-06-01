@@ -73,7 +73,7 @@ fun LoginScreen(
             ) {
                 KakaoButton("카카오로 시작하기", enabled = state !is LoginUiState.Loading, onClick = onKakao)
                 Spacer(Modifier.height(10.dp))
-                SecondaryButton("데모 계정으로 둘러보기") { onDemo(UiText.DEMO_EMAIL, UiText.DEMO_PASSWORD) }
+                SecondaryButton("이메일로 둘러보기") { onDemo(UiText.DEMO_EMAIL, UiText.DEMO_PASSWORD) }
                 Spacer(Modifier.height(16.dp))
                 Text(
                     "가입 시 이용약관 및 개인정보처리방침에\n동의하는 것으로 간주됩니다.",

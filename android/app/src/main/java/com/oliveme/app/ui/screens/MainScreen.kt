@@ -22,6 +22,9 @@ import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.activity.compose.BackHandler
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
@@ -47,6 +50,9 @@ fun MainScreen(
     onDiagnosis: () -> Unit,
     onMap: () -> Unit,
     onMyPage: () -> Unit,
+    onResult: () -> Unit,
+    onNotice: () -> Unit,
+    onConsult: () -> Unit,
     onLogout: () -> Unit,
 ) {
     val drawerState = rememberDrawerState(DrawerValue.Closed)
@@ -85,8 +91,9 @@ fun MainScreen(
                                     scope.launch { drawerState.close() }
                                     when (item) {
                                         "컬러 진단하기" -> onDiagnosis()
-                                        "내 컬러 리포트" -> onMyPage()
+                                        "내 컬러 리포트" -> onResult()
                                         "근처 매장 찾기", "즐겨찾기 매장" -> onMap()
+                                        "컬러 상담" -> onConsult()
                                     }
                                 }
                                 .padding(vertical = 9.dp),
@@ -112,7 +119,15 @@ fun MainScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            AppTopBar("OliveMe", onBack = { scope.launch { drawerState.open() } }, navigationLabel = "☰", action = "♡")
+            AppTopBar(
+                "OliveMe",
+                onBack = { scope.launch { drawerState.open() } },
+                navigationIcon = Icons.Filled.Menu,
+                navigationContentDescription = "메뉴",
+                actionIcon = Icons.Filled.Notifications,
+                actionContentDescription = "알림",
+                onAction = onNotice,
+            )
             Column(Modifier.padding(top = 2.dp, bottom = 4.dp)) {
                 Text("안녕하세요, ${user.displayName}님", color = OliveTextMid, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                 Text(
@@ -140,7 +155,7 @@ fun MainScreen(
                         .background(Color.White, RoundedCornerShape(12.dp))
                         .padding(horizontal = 16.dp, vertical = 11.dp),
                 ) {
-                    Text("지금 진단 시작 ->", color = OlivePrimaryDeep, fontWeight = FontWeight.Bold)
+                        Text("지금 진단 시작", color = OlivePrimaryDeep, fontWeight = FontWeight.Bold)
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -148,7 +163,7 @@ fun MainScreen(
                 PastelIconTile("마이페이지", "진단 이력 3건", Modifier.weight(1f), OliveAccentSoft, OliveAccent, onMyPage)
             }
             Text("최근 진단 결과", color = OliveText, fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, fontSize = 19.sp)
-            OliveCardBlock(Modifier.clickable(onClick = onMyPage)) {
+            OliveCardBlock(Modifier.clickable(onClick = onResult)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     Box(
                         Modifier

@@ -5,6 +5,18 @@
 This repository implements OliveMe, an Android Kotlin personal color app. The
 single source of truth is `docs/TRUTH_SPEC.md`.
 
+All implementation, QA, design, documentation, and review decisions must read
+and follow `docs/TRUTH_SPEC.md` first. When the implementation and
+`docs/TRUTH_SPEC.md` disagree, either fix the implementation or update
+`docs/TRUTH_SPEC.md` to match verified facts before continuing.
+
+Use `@test-android-apps` for real Android app QA, including emulator flows,
+screenshots, UI tree captures, logcat, crash buffers, and performance evidence.
+
+Use `gstack-browse` for checking the HTML design source. `Personalcolor design/`
+is the immutable visual reference and must not be edited during Android
+implementation work.
+
 ## gstack
 
 Use `gstack-browse` for all web browsing. Do not use generic web browsing for

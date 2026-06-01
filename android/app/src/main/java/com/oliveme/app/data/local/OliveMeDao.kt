@@ -37,6 +37,9 @@ interface OliveMeDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertFavoriteStore(store: FavoriteStoreEntity)
 
+    @Query("DELETE FROM favorite_stores WHERE userId = :userId AND id = :storeId")
+    suspend fun deleteFavoriteStore(userId: String, storeId: String)
+
     @Query("SELECT * FROM favorite_stores WHERE userId = :userId ORDER BY createdAt DESC")
     suspend fun getFavoriteStores(userId: String): List<FavoriteStoreEntity>
 }

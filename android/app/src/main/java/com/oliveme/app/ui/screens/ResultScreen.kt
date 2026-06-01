@@ -10,9 +10,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -42,6 +48,7 @@ fun ResultScreen(
     state: ResultUiState,
     onBack: () -> Unit,
     onSave: () -> Unit,
+    onShare: () -> Unit,
     onMap: () -> Unit,
     onMyPage: () -> Unit,
 ) {
@@ -54,21 +61,41 @@ fun ResultScreen(
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        AppTopBar("진단 결과", onBack = onBack, action = if (state.saved) "♥" else "♡", onAction = onSave)
+        AppTopBar(
+            "진단 결과",
+            onBack = onBack,
+            navigationIcon = Icons.Filled.ArrowBack,
+            navigationContentDescription = "뒤로",
+            actionIcon = if (state.saved) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+            actionContentDescription = "결과 저장",
+            onAction = onSave,
+        )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("타입", "의류", "메이크업", "특징").forEachIndexed { index, label ->
+            listOf("내 컬러", "의상", "메이크업", "특징").forEachIndexed { index, label ->
                 Pill(label, selected = page == index) { page = index }
+            }
+        }
+        Row(horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
+            repeat(4) { index ->
+                Box(
+                    Modifier
+                        .padding(horizontal = 3.dp)
+                        .height(6.dp)
+                        .width(if (index == page) 18.dp else 6.dp)
+                        .background(if (index == page) OlivePrimaryDeep else OliveTextDim.copy(alpha = 0.35f), CircleShape),
+                )
             }
         }
         when (page) {
             0 -> TypePage(result.type, result.englishLabel, result.matchScore, result.description, result.palette, result.avoidColors, Modifier.weight(1f))
-            1 -> ProductPage("Clothes", result.clothes, Modifier.weight(1f))
-            2 -> ProductPage("Makeup", result.makeup.values.flatten(), Modifier.weight(1f))
+            1 -> ProductPage("의상 추천", result.clothes, Modifier.weight(1f))
+            2 -> ProductPage("메이크업 추천", result.makeup.values.flatten(), Modifier.weight(1f))
             else -> TraitsPage(result.traits, result.keywords, result.signature, Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            SecondaryButton("공유", Modifier.weight(0.8f), onShare)
             SecondaryButton("근처 매장", Modifier.weight(1f), onMap)
-            OliveButton("마이페이지", Modifier.weight(1f), onClick = onMyPage)
+            OliveButton("마이페이지 저장", Modifier.weight(1.2f), onClick = onMyPage)
         }
         LegacyJetpackEvidence()
     }

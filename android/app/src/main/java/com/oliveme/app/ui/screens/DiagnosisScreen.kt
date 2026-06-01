@@ -15,6 +15,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -40,8 +43,10 @@ import com.oliveme.app.ui.theme.OliveTextMid
 fun DiagnosisScreen(
     state: DiagnosisUiState,
     onBack: () -> Unit,
+    onHelp: () -> Unit,
     onCamera: () -> Unit,
     onGallery: () -> Unit,
+    onSample: () -> Unit,
     onAnalyze: () -> Unit,
     onResult: () -> Unit,
 ) {
@@ -52,9 +57,17 @@ fun DiagnosisScreen(
             .padding(horizontal = 20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        AppTopBar("컬러 진단", onBack = onBack, action = "?")
+        AppTopBar(
+            "컬러 진단",
+            onBack = onBack,
+            navigationIcon = Icons.Filled.ArrowBack,
+            navigationContentDescription = "뒤로",
+            actionIcon = Icons.Filled.HelpOutline,
+            actionContentDescription = "촬영 도움말",
+            onAction = onHelp,
+        )
         when (state) {
-            is DiagnosisUiState.ChoosePhoto -> ChoosePhoto(onCamera, onGallery, state.notice)
+            is DiagnosisUiState.ChoosePhoto -> ChoosePhoto(onCamera, onGallery, onSample, state.notice)
             is DiagnosisUiState.Preview -> PreviewPhoto(onCamera, onGallery, onAnalyze)
             is DiagnosisUiState.Analyzing -> Analyzing(state.step)
             is DiagnosisUiState.Fallback -> DiagnosisComplete("분석 완료", state.reason, onResult)
@@ -64,7 +77,7 @@ fun DiagnosisScreen(
 }
 
 @Composable
-private fun ChoosePhoto(onCamera: () -> Unit, onGallery: () -> Unit, notice: String?) {
+private fun ChoosePhoto(onCamera: () -> Unit, onGallery: () -> Unit, onSample: () -> Unit, notice: String?) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -83,7 +96,7 @@ private fun ChoosePhoto(onCamera: () -> Unit, onGallery: () -> Unit, notice: Str
         Box(
             Modifier
                 .fillMaxWidth()
-                .height(280.dp)
+                .height(300.dp)
                 .background(softBeautyGradient(), RoundedCornerShape(24.dp))
                 .border(2.dp, OlivePrimary, RoundedCornerShape(24.dp))
                 .clickable(onClick = onGallery),
@@ -122,6 +135,27 @@ private fun ChoosePhoto(onCamera: () -> Unit, onGallery: () -> Unit, notice: Str
                 }
             }
         }
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("또는 샘플 사진으로 체험해보세요", color = OliveTextDim, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                repeat(4) { index ->
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(70.dp)
+                            .background(
+                                if (index % 2 == 0) OlivePrimary.copy(alpha = 0.22f) else OliveSecondarySoft,
+                                RoundedCornerShape(14.dp),
+                            )
+                            .border(1.dp, OliveLine, RoundedCornerShape(14.dp))
+                            .clickable(onClick = onSample),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text("S${index + 1}", color = OlivePrimaryDeep, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -132,7 +166,7 @@ private fun PreviewPhoto(onCamera: () -> Unit, onGallery: () -> Unit, onAnalyze:
         Box(
             Modifier
                 .fillMaxWidth()
-                .height(280.dp)
+                .height(300.dp)
                 .background(softBeautyGradient(), RoundedCornerShape(24.dp)),
             contentAlignment = Alignment.Center,
         ) {
@@ -168,7 +202,7 @@ private fun Analyzing(step: Int) {
         Box(
             Modifier
                 .fillMaxWidth()
-                .height(280.dp)
+                .height(300.dp)
                 .background(softBeautyGradient(), RoundedCornerShape(24.dp)),
             contentAlignment = Alignment.Center,
         ) {

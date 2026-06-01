@@ -1,55 +1,62 @@
 # OliveMe 단일 진실 명세서
 
 버전: 2026-06-01
-상태: 구현 기준 문서
+상태: 현재 구현 사실 + HTML 1:1 목표 기준 문서
 적용 범위: `android/` Android 앱, GitHub 운영 하네스, 디자인 구현, 오류 방어, 발표/채점 증빙
 
 ## 1. 목표와 불변 규칙
 
-OliveMe는 사용자가 얼굴 사진을 선택하거나 촬영하면 Gemini Vision으로 퍼스널 컬러를 분석하고, 어울리는 의류·메이크업 색상과 가까운 올리브영 매장을 추천하는 Android Kotlin 앱이다. 목표는 `Personalcolor design/`의 프로토타입과 최대한 동일한 화면·상호작용·톤을 Android 앱으로 구현하고, 발표 채점 기준의 기능 항목을 실제 코드와 시연 가능한 플로우로 증빙하는 것이다.
+OliveMe는 사용자가 얼굴 사진을 선택하거나 촬영하면 Gemini Vision 기준의 퍼스널 컬러 분석을 수행하고, 어울리는 의류·메이크업 색상과 가까운 뷰티 매장을 추천하는 Android Kotlin 앱이다. 최종 목표는 `Personalcolor design/`의 HTML/JSX/CSS 프로토타입과 화면 구조, 버튼 흐름, 상호작용 톤을 최대한 1:1로 맞추는 것이다.
+
+이 문서는 두 기준을 분리한다.
+
+- **현재 구현 사실**: 지금 Android 코드가 실제로 수행하는 동작이다. 완료 기능처럼 말할 수 있는 것은 이 항목뿐이다.
+- **HTML 1:1 목표**: `Personalcolor design/`에 이미 존재하지만 Android 구현이 아직 따라가야 하는 동작이다. PR과 issue로 추적한다.
 
 불변 규칙:
 
 - 앱 이름은 `OliveMe`, Android `applicationId`는 `com.oliveme.app`이다.
 - Android 프로젝트는 repo 루트가 아니라 `android/` 하위에 둔다.
 - `docs/TRUTH_SPEC.md`가 단 하나의 진실 명세서다.
+- 모든 에이전트는 `AGENTS.md`를 기본 하네스로 읽고, 이 문서를 최우선 기준으로 삼는다.
+- `CLAUDE.md`는 Claude 호환용 보조 문서이며 기본 운영 기준이 아니다.
 - `plan/`은 참고 자료로만 사용하고 git에 올리지 않는다.
-- `Personalcolor design/`은 디자인 원본이므로 git에 추적한다.
+- `Personalcolor design/`은 디자인 원본이므로 git에는 추적하되 Android 구현 중 수정하지 않는다.
 - 구현은 `dev` 브랜치에 먼저 올리고 검수 후 PR로 `main`에 병합한다.
-- 중대한 변경, 보안/설계 검토, 채점 리스크는 GitHub issue로 흔적을 남기고 PR에서 닫는다.
+- 중대한 변경, 보안/설계 검토, 채점 리스크, HTML parity 미달 항목은 GitHub issue로 흔적을 남기고 PR에서 닫는다.
 - 오류 발생으로 앱이 종료되면 안정성 0점 리스크가 있으므로 모든 외부 실패는 안내 메시지와 fallback 상태로 전환한다.
 
 ## 2. 입력 자료에서 확정된 요구사항
 
 ### 2.1 과제 및 채점 기준
 
-`plan/personal_color_app_spec.md`, 11주차 Term Project 이미지, 강의실 사진에서 확인한 채점 요구사항:
+`plan/` 자료와 강의/채점 기준에서 확인한 증빙 요구사항:
 
-| 항목 | 구현 증빙 | 목표 점수 |
-| --- | --- | --- |
-| Activity 3개 이상 + Intent | 7개 Activity, 2개 이상 Intent extra 전달 | 필수 |
-| Coroutine | `viewModelScope`, `suspend`, `withContext(Dispatchers.IO)` | 20 |
-| 다운로드/API 매니저 | Retrofit + Glide | 20 |
-| Jetpack 3개 이상 | ViewPager2, Fragment, RecyclerView, DrawerLayout, Room, Compose | 30 |
-| 외부 앱 연동 | 갤러리 선택, 카메라 촬영 Intent | 20 |
-| API 3개 이상 | Gemini API, Kakao Login, Kakao Local/Map | 60 |
-| DB | Room: 진단 이력, 추천 색상, 즐겨찾기 매장, 2FA 설정 | 30 |
-| ML 모델 | 직접 학습한 MNIST TFLite digit model | 50 가능성 |
-| 안정성 | 모든 오류 catch + fallback + 무중단 | 정성 0-10 |
-| 완성도 | 버튼/스와이프/탭/저장/지도/마이페이지 동작 | 정성 0-10 |
+| 항목 | 현재 구현/증빙 기준 |
+| --- | --- |
+| Activity 3개 이상 + Intent | `LoginActivity`, `Digit2FaActivity`, `MainActivity`, `DiagnosisActivity`, `ResultActivity`, `MapActivity`, `MyPageActivity`; `IntentKeys`로 user/result extra 전달 |
+| Coroutine | `viewModelScope`, `suspend`, `withContext(Dispatchers.IO)` |
+| 다운로드/API 매니저 | Retrofit API service, Glide dependency |
+| Jetpack 3개 이상 | Room, Compose, ViewModel, plus `LegacyJetpackEvidence`로 ViewPager2/Fragment/RecyclerView/DrawerLayout 증빙 |
+| 외부 앱 연동 | 갤러리 선택, 카메라 preview, share Intent 목표 |
+| API 3개 이상 | Gemini, Kakao Login, Kakao Local/Map |
+| DB | Room: user, digit auth, diagnosis history, colors, products, favorite stores |
+| ML 모델 | 직접 학습한 MNIST TFLite digit model asset |
+| 안정성 | 모든 취소/권한/API/model 실패를 crash-free fallback으로 처리 |
+| 완성도 | HTML 기준 버튼/탭/지도/마이페이지/저장/공유 동작을 구현 목표로 추적 |
 
-DB와 API는 중복 계산하지 않는다. Room은 내부 DB이고, Gemini/Kakao는 외부 API이므로 별도 증빙으로 정리한다.
+중요: `LegacyJetpackEvidence`는 채점 증빙용 숨은/보조 Android View 계층이다. 현재 사용자 화면의 결과 탭은 user-visible `ViewPager2`가 아니라 Compose tab state로 동작한다.
 
 ### 2.2 공식 문서 기반 API 기준
 
 - Gemini Developer API는 `generateContent`를 사용한다.
 - 모델 기본값은 `gemini-3.5-flash`이다.
-- 이미지 입력은 작은 파일 기준 Base64 inline 방식이며, 큰 파일/재사용이 필요하면 File API로 확장한다.
+- 이미지 입력은 Base64 inline 방식이다.
 - Gemini API key는 Google AI Studio/Google Cloud project에 속한다.
-- Gemini 무료 티어는 무료 토큰을 제공하지만 사용자 입력이 제품 개선에 사용될 수 있으므로 앱 개인정보 안내에 반영한다.
-- Kakao Login은 Android manifest에 Kakao auth scheme/activity가 필요하고, 사용자 정보 null 가능성을 방어한다.
+- Gemini 무료 티어는 입력 데이터가 제품 개선에 사용될 수 있으므로 개인정보 안내에 반영한다.
+- Kakao Login은 Android manifest auth scheme/activity와 nullable user info 방어가 필요하다.
 - Kakao Local keyword search는 REST API key를 `Authorization: KakaoAK ...` 헤더로 보낸다.
-- Kakao Map SDK는 키/해시 등록 실패 가능성을 UI fallback으로 처리한다.
+- Kakao Map SDK 또는 Local API 실패 시 mock map/sample store card로 대체한다.
 
 ## 3. Git, 브랜치, 하네스
 
@@ -59,14 +66,13 @@ DB와 API는 중복 계산하지 않는다. Room은 내부 DB이고, Gemini/Kaka
 - 구현자는 항상 `dev`에서 작업한다.
 - `main` 병합은 GitHub PR만 허용한다.
 - PR 제목은 기능 단위로 쓰고, 본문에 `Closes #issue-number`를 포함한다.
-- 릴리스/최종 제출 전 `main` 기준으로 태그를 붙일 수 있지만 브랜치는 추가하지 않는다.
 
 ### 3.2 하네스 파일
 
-- `AGENTS.md`: Codex/gstack 작업 규칙, browsing 규칙, branch 규칙, secret 규칙.
-- `CLAUDE.md`: gstack skill routing, Android crash-free 규칙, single truth spec 규칙.
+- `AGENTS.md`: 기본 공용 하네스. `docs/TRUTH_SPEC.md` 최우선, Android QA는 `@test-android-apps`, HTML 확인은 `gstack-browse`, `Personalcolor design/` 수정 금지를 명시한다.
+- `CLAUDE.md`: Claude 호환 보조 문서. 기본 운영 기준은 `AGENTS.md`와 `docs/TRUTH_SPEC.md`임을 명시한다.
 - `.github/ISSUE_TEMPLATE/*`: 구현, 보안, 디자인 리뷰 issue 템플릿.
-- `.github/pull_request_template.md`: 채점 증빙, 테스트, secret 체크 항목.
+- `.github/pull_request_template.md`: 채점 증빙, Test Android Apps artifact, HTML 대조, secret 체크 항목.
 
 ### 3.3 제외 규칙
 
@@ -80,7 +86,7 @@ DB와 API는 중복 계산하지 않는다. Room은 내부 DB이고, Gemini/Kaka
 - `local.properties`, `android/local.properties`
 - `.env`, `.env.*`
 - `*.jks`, `*.keystore`, `*.p12`, `*.pem`
-- IDE, build, ML cache: `.idea/`, `*.iml`, `tools/.venv/`, `tools/data/`, `tools/checkpoints/`
+- `.idea/`, `*.iml/`, `tools/.venv/`, `tools/data/`, `tools/checkpoints/`
 
 ## 4. Android 아키텍처
 
@@ -115,78 +121,83 @@ android/
 
 ### 4.2 Activity와 Intent
 
-| Activity | 역할 | 주요 Intent input | 주요 output |
+| Activity | 현재 역할 | 주요 Intent input | 실패/누락 fallback |
 | --- | --- | --- | --- |
-| `LoginActivity` | Kakao login, demo login | 없음 | `userId`, `userName`, `email`, `profileImageUrl` |
-| `Digit2FaActivity` | 선택형 손글씨 숫자 2FA | `userId`, `email`, `expectedDigit` | 2FA 통과 후 Main 이동 |
-| `MainActivity` | 홈, drawer, quick action | user extras | Diagnosis/Map/MyPage 이동 |
-| `DiagnosisActivity` | 카메라/갤러리, Gemini 진단 | user extras | `diagnosisId`, result extras |
-| `ResultActivity` | 결과 ViewPager2, 저장, 공유 | `diagnosisId` or result extras | Map/MyPage 이동 |
-| `MapActivity` | Kakao map/local, store favorite | location/user extras | favorite 저장 |
-| `MyPageActivity` | 리포트, 이력, 저장 매장 | user extras | 재진단/결과 이동 |
+| `LoginActivity` | Kakao login, demo login | 없음 | login error text |
+| `Digit2FaActivity` | demo 계정 손글씨 숫자 2FA | `userId`, `email`, `expectedDigit` | 실패 메시지 + 무제한 재시도 |
+| `MainActivity` | 홈, drawer, quick action | user extras | `DemoData.safeUser()` |
+| `DiagnosisActivity` | 카메라/갤러리, Gemini/sample 진단 | user extras | sample result |
+| `ResultActivity` | 결과 탭, 저장, 이동 | user extras/result 목표 | sample result |
+| `MapActivity` | Kakao Local/sample store | user/location 목표 | 부산대 sample stores |
+| `MyPageActivity` | 리포트, 이력, 즐겨찾기 | user extras | sample profile/result |
 
-공통 Intent key는 `IntentKeys` object에만 정의한다. Activity는 extra 누락 시 `DemoData.safeUser()`와 `DemoData.sampleResult()`로 복구한다.
+공통 Intent key는 `IntentKeys` object에 정의한다. Activity는 extra 누락 시 safe user/result로 복구한다.
 
 ### 4.3 ViewModel / Repository 관계
 
 ```mermaid
 flowchart TD
   LoginActivity --> LoginViewModel
-  LoginViewModel --> KakaoAuthRepository
-  LoginViewModel --> DigitAuthRepository
+  LoginViewModel --> LoginRepository
+  LoginRepository --> DigitAuthRepository
+  LoginRepository --> KakaoSDK["Kakao UserApiClient"]
   Digit2FaActivity --> Digit2FaViewModel
   Digit2FaViewModel --> DigitRecognizer
-  Digit2FaViewModel --> DigitAuthRepository
   DiagnosisActivity --> DiagnosisViewModel
   DiagnosisViewModel --> DiagnosisRepository
   DiagnosisRepository --> GeminiPersonalColorService
   DiagnosisRepository --> OliveMeDatabase
   ResultActivity --> ResultViewModel
-  ResultViewModel --> DiagnosisRepository
   MapActivity --> MapViewModel
-  MapViewModel --> KakaoLocalRepository
   MapViewModel --> StoreRepository
+  StoreRepository --> KakaoLocalApi
   MyPageActivity --> MyPageViewModel
   MyPageViewModel --> DiagnosisRepository
   MyPageViewModel --> StoreRepository
 ```
 
-### 4.4 상태 모델
+### 4.4 현재 상태 모델
 
-모든 ViewModel state는 `sealed interface` 또는 불변 `data class`로 둔다.
+현재 Kotlin 구현과 일치하는 state만 완료 기능으로 말한다.
 
-- `LoginUiState`: `Idle`, `Loading`, `NeedsDigit2Fa`, `LoggedIn`, `Error(message)`
-- `Digit2FaUiState`: `Ready`, `Checking`, `Failed(message, attempts)`, `Passed`, `ModelUnavailable`
-- `DiagnosisUiState`: `ChoosePhoto`, `Preview(uri)`, `Analyzing(step)`, `Success(result)`, `Fallback(result, reason)`, `Error(message)`
-- `ResultUiState`: `Loading`, `Loaded(result, saved)`, `Fallback(result)`, `Error(message)`
-- `MapUiState`: `Loading`, `Loaded(stores, selected)`, `Fallback(stores, reason)`
-- `MyPageUiState`: `Loaded(profile, history, favorites)`, `Empty`, `Error(message)`
+- `LoginUiState`: `Idle`, `Loading`, `NeedsDigit2Fa(user, expectedDigit)`, `LoggedIn(user)`, `Error(message)`
+- `Digit2FaUiState`: `Ready`, `Checking`, `Failed(message, attempts)`, `Passed(prediction, confidence)`
+- `DiagnosisUiState`: `ChoosePhoto(notice?)`, `Preview(uri)`, `Analyzing(step)`, `Success(result)`, `Fallback(result, reason)`
+- `ResultUiState`: `data class ResultUiState(result, saved)`
+- `MapUiState`: `data class MapUiState(stores, selected, fallbackReason, activeFilter, favoriteIds)`
+- `MyPageUiState`: `data class MyPageUiState(history, favorites)`
 
-오류 state는 앱 종료가 아니라 화면에 안내를 보여주는 state다.
+현재 없는 state:
+
+- `Digit2FaUiState.ModelUnavailable`
+- `DiagnosisUiState.Error`
+- `ResultUiState.Loading/Loaded/Fallback/Error`
+- `MapUiState.Loading/Loaded/Fallback`
+- `MyPageUiState.Loaded/Empty/Error`
+
+이 state들은 구현 전까지 명세서에서 완료 기능처럼 쓰지 않는다.
 
 ## 5. 디자인 구현 기준
 
 ### 5.1 디자인 원본 파일 역할
 
-| 파일 | Android 반영 |
+| 파일 | Android 반영 기준 |
 | --- | --- |
-| `styles.css` | 색상, 그림자, radius, animation timing을 Compose theme로 변환 |
-| `android-frame.jsx` | Android status/nav/app bar 느낌, phone frame 비율 참고 |
-| `shared.jsx` | 공통 AppBar, Card, CTAButton, Swatch, Logo, FacePlaceholder |
-| `src/app.jsx` | 화면 순서, swipe navigation, mock data, result data |
-| `src/screens/login.jsx` | 로그인 hero, Kakao/email buttons, 약관 텍스트 |
-| `src/screens/main.jsx` | drawer, greeting, hero CTA, quick actions, recent card |
-| `src/screens/diagnosis.jsx` | choose/preview/analyzing stage, tips, scan animation |
-| `src/screens/result.jsx` | ViewPager pages, palette, clothes, makeup, traits |
-| `src/screens/map.jsx` | map overlay, search bar, chips, bottom sheet, store cards |
-| `src/screens/mypage.jsx` | profile stats, report/history/stores tabs |
-| `assets/*.png`, `uploads/*.png` | logo/mark resources |
+| `styles.css` | 색상, radius, shadow, animation timing을 Compose theme/common component로 변환 |
+| `android-frame.jsx` | Android frame, status/nav bar, phone 비율 참고 |
+| `shared.jsx` | AppBar, Card, CTAButton, Swatch, Logo, Avatar, Placeholder |
+| `src/app.jsx` | 화면 순서, mock data, navigation intent |
+| `src/screens/login.jsx` | login hero, Kakao/email buttons, terms text |
+| `src/screens/main.jsx` | drawer, greeting, hero CTA, quick action, recent card |
+| `src/screens/diagnosis.jsx` | choose/preview/analyzing/sample photo row |
+| `src/screens/result.jsx` | 4 tabs, dot indicator, save toast, share, bottom actions |
+| `src/screens/map.jsx` | full-bleed mock map, search bar, filter chips, markers, bottom sheet |
+| `src/screens/mypage.jsx` | profile header, stats row, magazine report, history/stores tabs |
+| `assets/*.png`, `uploads/*.png` | logo/mark/image resources |
 
-`OliveMe.html`은 번들 데모 산출물이므로 원본 source보다 우선하지 않는다.
+`OliveMe.html`은 보조 번들 산출물이다. 원본 우선순위는 `src/*.jsx`와 `styles.css`다.
 
 ### 5.2 Theme tokens
-
-Compose theme 값:
 
 | CSS token | Hex | Compose name |
 | --- | --- | --- |
@@ -206,101 +217,36 @@ Compose theme 값:
 | `--text-dim` | `#A1909A` | `OliveTextDim` |
 | `--line` | `#EDE3DC` | `OliveLine` |
 
-Winter cool result palette:
+### 5.3 화면별 현재 구현과 HTML 목표
 
-`#722F37`, `#5B1A1F`, `#4A2347`, `#1B2A4E`, `#C13584`, `#B85C7B`, `#F2C2D1`, `#6B7280`, `#2F6E5F`.
-
-### 5.3 화면별 상호작용
-
-- Login: Kakao 버튼은 Kakao SDK 시도 후 실패 시 안내; 이메일 버튼은 demo login form을 표시한다.
-- Demo login: `test01@gmail.com` / `test`만 성공. 성공 시 2FA 설정을 확인한다.
-- Digit 2FA: 등록 숫자 `1`을 표시하고 손글씨 canvas에 사용자가 그린다. 맞으면 Main, 틀리면 무제한 재시도.
-- Main: hamburger drawer, notification tap, diagnosis CTA, map/mypage quick action, recent result tap, bottom tabs.
-- Diagnosis: camera/gallery 버튼, 선택 취소 처리, preview retry/analyze, analyzing 단계 animation, Gemini 실패 시 sample result.
-- Result: ViewPager2 4페이지(type/clothes/makeup/traits), save toggle, share/download placeholder, map/mypage 이동, dot indicator.
-- Map: 현재 위치 권한 허용 시 주변 검색, 거부/실패 시 부산대 좌표 fallback, chip 필터, marker/store card/favorite.
-- MyPage: report/history/stores tabs, latest result open, favorite store open, redo diagnosis.
+| 화면 | 현재 구현 사실 | HTML 1:1 목표 |
+| --- | --- | --- |
+| Login | full logo, Kakao, `이메일로 둘러보기`, demo credential 자동 사용, terms text | translucent bottom sheet와 HTML spacing 추가 정밀화 |
+| Digit 2FA | 손글씨 canvas, TFLite 판정, fallback button, reset | 숫자 1 인증 안정성, 빈/작은 stroke 안내, 크래시 금지 |
+| Main | drawer, notification toast, hero CTA, quick action, recent -> result, color story pills | bottom tab 또는 동일 navigation density 정밀화 |
+| Diagnosis | camera/gallery, cancel notice, sample row, help toast, preview, analyze, sample fallback | 4/5 upload/preview area와 scan animation 정밀화 |
+| Result | Compose 4 tabs, HTML labels, dot indicator, save toast, share Intent, map/mypage 이동 | user-visible swipe pager 정밀화 |
+| Map | full-bleed mock map, search bar, filters, markers, bottom sheet, favorite toggle, directions toast | 실제 Kakao Map SDK view 정밀화 |
+| MyPage | avatar/edit toast, stats row, magazine report, save/share, clickable history/store, empty state, redo | HTML spacing/thumbnail fidelity 정밀화 |
 
 ## 6. 데이터 설계
 
 ### 6.1 Entities
 
-`UserProfileEntity`
-
-- `userId: String` primary key
-- `email: String`
-- `displayName: String`
-- `profileImageUrl: String?`
-- `loginProvider: String` (`kakao`, `demo`)
-- `createdAt: Long`
-- `updatedAt: Long`
-
-`DigitAuthConfigEntity`
-
-- `userId: String` primary key
-- `enabled: Boolean`
-- `expectedDigit: Int`
-- `threshold: Float` default `0.80f`
-- `updatedAt: Long`
-
-`DiagnosisHistoryEntity`
-
-- `id: String` primary key
-- `userId: String`
-- `sourceImageUri: String?`
-- `personalColorType: String`
-- `englishLabel: String`
-- `matchScore: Int`
-- `description: String`
-- `signature: String`
-- `createdAt: Long`
-- `isFallback: Boolean`
-
-`RecommendedColorEntity`
-
-- `id: String` primary key
-- `diagnosisId: String`
-- `hex: String`
-- `name: String`
-- `role: String` (`palette`, `avoid`, `cloth`, `makeup`)
-- `sortOrder: Int`
-
-`ProductRecommendationEntity`
-
-- `id: String` primary key
-- `diagnosisId: String`
-- `category: String`
-- `title: String`
-- `subtitle: String`
-- `colorHex: String`
-- `sortOrder: Int`
-
-`FavoriteStoreEntity`
-
-- `id: String` primary key
-- `userId: String`
-- `name: String`
-- `address: String`
-- `distanceLabel: String`
-- `lat: Double?`
-- `lng: Double?`
-- `phone: String?`
-- `placeUrl: String?`
-- `createdAt: Long`
+- `UserProfileEntity(userId, email, displayName, profileImageUrl, loginProvider, createdAt, updatedAt)`
+- `DigitAuthConfigEntity(userId, enabled, expectedDigit, threshold, updatedAt)`
+- `DiagnosisHistoryEntity(id, userId, sourceImageUri, personalColorType, englishLabel, matchScore, description, signature, createdAt, isFallback)`
+- `RecommendedColorEntity(id, diagnosisId, hex, name, role, sortOrder)`
+- `ProductRecommendationEntity(id, diagnosisId, category, title, subtitle, colorHex, sortOrder)`
+- `FavoriteStoreEntity(id, userId, name, address, distanceLabel, lat, lng, phone, placeUrl, createdAt)`
 
 ### 6.2 DTOs
 
-`PersonalColorResultDto`
+- `GeminiGenerateContentRequest/Response`: Gemini `generateContent` request/response.
+- `KakaoKeywordSearchResponse`: Kakao Local keyword search response.
+- `PersonalColorResult`: app domain result.
 
-- `type`, `englishLabel`, `matchScore`, `description`, `signature`
-- `palette: List<ColorDto>`
-- `avoidColors: List<ColorDto>`
-- `clothes: List<ProductDto>`
-- `makeup: Map<String, List<ProductDto>>`
-- `traits: List<String>`
-- `keywords: List<String>`
-
-Gemini 응답은 strict JSON을 요청하지만, 파싱 실패 시 `DemoData.sampleResult(reason)`로 대체한다.
+Gemini 응답은 JSON only prompt를 요청하지만, 현재 구현은 raw text를 `Gson.fromJson`으로 파싱한다. Markdown fence 제거/lenient parser는 추가 목표다.
 
 ## 7. API와 민감정보
 
@@ -320,8 +266,9 @@ KAKAO_REST_API_KEY=...
 
 - 과제 데모에서는 Gradle `BuildConfig`로 key를 주입할 수 있다.
 - 실제 배포에서는 Android 앱에 Gemini/Kakao REST key를 직접 넣지 않고 backend proxy를 둔다.
-- 이 리스크는 security issue로 남기고, 현재 PR에서는 문서화와 템플릿으로 관리한다.
+- backend proxy는 현재 구현 범위 밖이지만 security issue로 남긴다.
 - 얼굴 사진은 진단 요청용 임시 데이터이며 Room에는 원본 byte를 저장하지 않는다.
+- Room에는 `sourceImageUri`와 결과만 저장한다.
 - Gemini 무료 티어 사용 시 입력 데이터가 제품 개선에 사용될 수 있다는 안내를 약관/개인정보 문구에 둔다.
 
 ## 8. 2FA ML 명세
@@ -336,11 +283,14 @@ KAKAO_REST_API_KEY=...
 
 ### 8.2 런타임
 
-- `DigitCanvas`는 stroke path를 bitmap으로 렌더링하고 28x28 grayscale로 변환한다.
-- `DigitRecognizer.classify(bitmap)`는 Interpreter를 lazy load한다.
-- 모델 파일 없음/손상/Interpreter 오류는 `DigitPrediction.unavailable`로 반환한다.
+- `DigitCanvas`는 stroke path를 bitmap으로 렌더링한다.
+- `DigitPreprocessor`는 ink bbox를 찾고, 가장 긴 변을 target ink size 20으로 맞춘 뒤 28x28 중앙에 정렬한다.
+- 빈 캔버스 또는 너무 작은 stroke는 `null` preprocessing result가 되고, `DigitPrediction.unavailable("숫자를 그려주세요.")`로 이어진다.
+- `DigitRecognizer.classify(bitmap)`는 TFLite `Interpreter`를 lazy load한다.
+- 모델 파일 없음/손상/Interpreter 오류/runtime op mismatch는 `DigitPrediction.unavailable`로 반환한다.
+- TFLite runtime dependency는 `org.tensorflow:tensorflow-lite:2.17.0`이다.
 - `Digit2FaViewModel`은 expected digit과 threshold를 비교한다.
-- 현재 정책은 무제한 재시도다. 나중에 제한하려면 `maxAttempts` 상수를 추가할 위치에 주석을 남긴다.
+- 현재 정책은 무제한 재시도다. 제한 정책을 추가하려면 `maxAttempts` hook 위치에 구현한다.
 
 ### 8.3 데모 계정
 
@@ -352,76 +302,117 @@ KAKAO_REST_API_KEY=...
 - expectedDigit: `1`
 - threshold: `0.80`
 
-## 9. 오류 방지 표
+## 9. 버튼 매트릭스
 
-| 위험 | 방어책 | fallback |
+| 화면 | 버튼/상호작용 | 현재 동작 | HTML 기대 동작 | 구현 결정/fallback |
+| --- | --- | --- | --- | --- |
+| Login | Kakao | Kakao SDK login, 실패 시 error text | 카카오로 시작하기 | 실패 시 email/demo 사용 안내 |
+| Login | 이메일로 둘러보기 | demo login 실행 | email button | demo credential 자동 사용, 2FA 이동 |
+| Login | 약관/개인정보 | 안내 텍스트 | underline text | 현재 안내만, 향후 snackbar/문서 |
+| 2FA | 인증 | TFLite classify | 숫자 1 판정 | 실패 시 재시도, crash 금지 |
+| 2FA | 다시 그리기 | canvas clear/reset | clear | state Ready |
+| 2FA | 모델 fallback | demo 통과 버튼 존재 | 없음 | 모델 불가 시 demo 통과 허용 |
+| Main | hamburger | drawer open | drawer open | 정상 |
+| Main | 알림 | toast 안내 | bell action | `새 알림이 없습니다` |
+| Main | 진단 CTA | Diagnosis 이동 | diagnosis | 정상 |
+| Main | 근처 매장 | Map 이동 | map | 정상 |
+| Main | 마이페이지 | MyPage 이동 | mypage | 정상 |
+| Main | 최근 결과 | Result 이동 | Result 이동 | 정상 |
+| Main | drawer 홈 | close | main | close |
+| Main | drawer 컬러 상담 | toast 안내 | 상담 목표 | `컬러 상담은 준비 중입니다` |
+| Diagnosis | help | 촬영 팁 toast | chat/help icon | 정상 |
+| Diagnosis | upload area | gallery | pick | gallery |
+| Diagnosis | sample photo | sample preview | sample preview | 분석 시 sample fallback |
+| Diagnosis | 분석 시작 | Gemini/sample | analyze | 실패 시 sample result |
+| Result | share | `ACTION_SEND` chooser | share | 앱 없음 toast |
+| Result | save | saved toggle + toast | toast + save | heart fill + 안내 |
+| Result | tabs | 4 Compose tabs + dot | 4 pager labels | label/dot 맞춤 |
+| Map | locate | fallback reload + toast | location | permission/fallback load |
+| Map | filters | `activeFilter` state | filter state | local filter |
+| Map | favorite | Room save/remove + in-memory ids | heart favorite | 실패해도 UI 유지 |
+| Map | 길찾기 | 준비 중 toast | navigate | external intent는 추가 목표 |
+| MyPage | settings/edit | toast 안내 | settings/edit | crash-free 안내 |
+| MyPage | tabs | 3 tabs | 3 tabs | label 맞춤 |
+| MyPage | report save/share | save toast/share Intent | save/share | 앱 없음 toast |
+| MyPage | history/store item | result/map navigation | open result/map | 정상 |
+| MyPage | redo | Diagnosis 이동 | redo | 정상 |
+
+## 10. 오류 방지 표
+
+| 위험 | 현재/목표 방어책 | fallback |
 | --- | --- | --- |
-| Kakao app 미설치/취소 | cancel은 오류로 보지 않고 login screen 유지 | demo login 사용 |
-| Kakao user info null | nullable DTO, 기본 이름 `OliveMe User` | profile placeholder |
-| key hash/API key 누락 | BuildConfig blank 체크 | mock user/API fallback |
+| Kakao app 미설치/취소 | SDK error를 state error로 표시 | email/demo login |
+| Kakao user info null | nullable DTO, 기본 이름 | profile placeholder |
+| API key 누락 | BuildConfig blank 체크 | mock user/API fallback |
 | email/password 오류 | inline message | 재입력 |
-| TFLite asset 누락/손상 | try-catch, unavailable state | 2FA 재시도/데모 안내 |
-| 2FA 오인식 | 무제한 재시도, clear button | 앱 종료 없음 |
-| 카메라 권한 거부 | permission result 처리 | gallery 선택 안내 |
-| 갤러리 취소 | result null 처리 | choose photo 유지 |
-| bitmap OOM | decode bounds, size 제한, compress | sample result |
-| Gemini quota/network | timeout/retry 1회, IOException catch | sample winter cool result |
-| Gemini JSON 파싱 실패 | lenient parse + schema validation | sample result |
-| 위치 권한 거부 | 권한 상태 분기 | 부산대 좌표 |
-| Kakao Local 실패 | HTTP error catch | sample 부산대 매장 5개 |
+| TFLite asset 누락/손상 | try-catch, unavailable prediction | 2FA 재시도/데모 통과 |
+| TFLite op/runtime mismatch | runtime version 고정, error catch | unavailable message |
+| 2FA 오인식 | bbox preprocessing, 무제한 재시도 | 앱 종료 없음 |
+| 카메라 권한 거부 | permission result 처리 | gallery 안내 |
+| 갤러리 취소 | null URI 처리 | choose photo notice |
+| 이미지 OOM | `ImageBytesLoader` downsample + JPEG compress + catch | sample result |
+| Gemini quota/network | IOException/HTTP failure catch | sample winter cool result |
+| Gemini JSON 파싱 실패 | 현재 Gson failure catch, fence stripping 목표 | sample result |
+| 공유 앱 없음 | `ActivityNotFoundException` catch 목표 | snackbar |
+| 위치 권한 거부 | 권한 상태 분기 목표 | 부산대 좌표 |
+| Kakao Local 실패 | HTTP error catch | sample 부산대 매장 |
 | Map SDK 실패 | map container fallback | mock map/cards |
-| Room migration 오류 | destructive migration 금지, fallback read | in-memory sample |
-| Intent extra 누락 | `IntentKeys` safe getters | sample user/result |
-| 중복 클릭 | loading flag, debounce | 버튼 disabled |
+| Room migration 오류 | destructive migration 금지, migration 추가 목표 | sample/in-memory fallback |
+| Intent extra 누락 | safe getters | sample user/result |
+| no-op 장식 버튼 | 동작/snackbar/삭제 중 하나로 정리 | crash 없음 |
+| 중복 클릭 | loading flag/debounce 목표 | 버튼 disabled |
 | lifecycle 취소 | `viewModelScope`, idempotent state | previous stable state |
 
-## 10. 테스트 기준
+## 11. 테스트 기준
 
 Unit tests:
 
-- Gemini JSON success/failure parse.
-- Kakao Local DTO parse.
-- Room DAO insert/read.
-- Demo login validation.
-- Digit preprocessing and threshold comparison.
-- fallback result generation.
+- Demo user seed credential.
+- fallback result completeness.
+- Digit preprocessing center normalization.
+- blank canvas rejection.
+- 추가 목표: Gemini JSON parse/fallback, Kakao DTO parse, Room DAO insert/read, favorite filter, share text builder.
 
-Instrumented/manual tests:
+Android QA:
 
-- Kakao 취소 후 crash 없음.
-- `test01@gmail.com` / `test` 로그인 성공.
-- 2FA 숫자 1 성공, 잘못된 숫자 재시도.
-- 카메라/갤러리 취소 후 choose screen 유지.
-- Gemini key 없음 상태에서도 sample result 표시.
-- Result ViewPager2 4페이지 이동.
-- DrawerLayout 열고 닫기.
-- RecyclerView 목록 스크롤.
-- 위치 권한 거부 시 부산대 mock map.
-- MyPage report/history/stores tab 이동.
+- `@test-android-apps/android-emulator-qa` 기준으로 build/install/launch한다.
+- tap 좌표는 screenshot 감이 아니라 UI tree bounds에서 계산한다.
+- 각 화면마다 screenshot, UI tree, summary, logcat, crash buffer를 `/tmp/oliveme-android-qa-*`에 저장한다.
+- `@test-android-apps/android-performance`는 기본 `gfxinfo framestats`를 남기고 jank가 크면 Perfetto를 추가한다.
 
-최종 검수:
+필수 flow:
 
-- `docs/TRUTH_SPEC.md`와 구현이 어긋나면 구현 또는 문서를 반드시 수정한다.
-- PR 전 `gstack-review`와 가능한 범위의 Android build/test를 실행한다.
-- UI는 `Personalcolor design/` reference와 스크린샷으로 비교한다.
+- Login logo 표시, Kakao 실패 안내, `이메일로 둘러보기`.
+- demo login 후 2FA 이동.
+- 2FA 빈 캔버스 실패, 잘못된 숫자 실패, 숫자 1 성공.
+- Main drawer open/close, drawer 전체 항목 탭.
+- Diagnosis camera cancel, gallery cancel, sample photo, preview, analyze, fallback result.
+- Result tabs, dot indicator, save snackbar, share fallback, map/mypage 이동.
+- Map location denied fallback, filters, store select, favorite toggle.
+- MyPage tabs, report share/save, latest result open, store open, redo diagnosis.
 
-## 11. 2인 작업 분배
+HTML 기준 확인:
+
+- `gstack-browse`로 `Personalcolor design/index.html`을 확인한다.
+- `index.html`이 CDN/Babel 문제로 blank면 local HTTP server로 재시도한다.
+- 그래도 blank면 `OliveMe.html` snapshot을 보조 기준으로 사용하되, 구현 기준은 `src/*.jsx`와 `styles.css`다.
+
+## 12. 2인 작업 분배
 
 팀원 A:
 
-- Compose theme/component 구현.
+- Compose theme/common component.
 - Login/Digit2Fa/Main/Result/MyPage UI.
 - Activity/Intent 화면 연결.
-- 디자인 스크린샷 대조.
-- 발표 PPT 화면 설명.
+- HTML 스크린샷 대조.
 
 팀원 B:
 
 - Gemini/Kakao/Room/TFLite/Repository.
 - camera/gallery/map/fallback.
-- unit/instrumented tests.
+- `ImageBytesLoader`, share/location/favorite.
+- unit/test-android-apps QA artifact.
 - GitHub issue/PR 운영.
-- 보안/오류 방지 표 검증.
 
 공통:
 
@@ -430,16 +421,18 @@ Instrumented/manual tests:
 - 시연 리허설.
 - PR 리뷰와 issue close 확인.
 
-## 12. 자체 검토 결과
+## 13. 자체 검토 결과
 
-- 모든 화면의 주요 버튼과 이동 경로가 명시되었다.
-- 모든 민감정보 보관 위치와 제외 규칙이 명시되었다.
-- API/DB/ML/Jetpack/외부 앱 연동의 채점 근거가 분리되었다.
-- 예상 실패 모드와 fallback이 표로 정리되었다.
-- 디자인 원본의 source 파일별 반영 방식이 정리되었다.
-- 2인 작업 분배가 UI/플랫폼 축으로 공평하게 나뉘었다.
+- 현재 구현과 다른 state를 완료 기능처럼 쓰던 내용을 정정했다.
+- `ViewPager2` 사용자 화면과 `LegacyJetpackEvidence` 채점 증빙을 분리했다.
+- HTML 원본 기준과 현재 Android 동작 차이를 화면별로 분리했다.
+- 버튼별 현재/목표/fallback을 매트릭스로 기록했다.
+- 민감정보 보관 위치와 제외 규칙을 명시했다.
+- API/DB/ML/Jetpack/외부 앱 연동의 채점 근거를 분리했다.
+- 예상 실패 모드와 fallback을 현재 구현/목표 기준으로 구분했다.
 
 남은 의도적 제한:
 
 - backend proxy는 현재 과제 데모 범위 밖이다. 단, 보안 issue와 명세서로 반드시 흔적을 남긴다.
-- TFLite 모델 파일은 `tools/train_digit_model.py`로 재생성 가능해야 하며, 런타임은 모델 손상에도 crash-free여야 한다.
+- user-visible `ViewPager2`는 별도 issue로 추적한다. 현재는 Compose tabs + `LegacyJetpackEvidence`가 사실이다.
+- HTML 1:1은 한 번에 끝나는 기능이 아니라 화면별 issue/PR로 추적한다.

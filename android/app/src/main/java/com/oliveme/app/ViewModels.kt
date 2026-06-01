@@ -2,7 +2,6 @@ package com.oliveme.app
 
 import android.content.Context
 import android.graphics.Bitmap
-import java.io.ByteArrayOutputStream
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -13,6 +12,7 @@ import com.oliveme.app.data.repository.OliveStore
 import com.oliveme.app.data.repository.PersonalColorResult
 import com.oliveme.app.data.repository.UserProfile
 import com.oliveme.app.ml.DigitRecognizer
+import com.oliveme.app.util.ImageBytesLoader
 import com.oliveme.app.util.UiText
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -126,6 +126,10 @@ class DiagnosisViewModel : ViewModel() {
             ?: DiagnosisUiState.ChoosePhoto("사진 선택이 취소되었습니다. 다시 선택해주세요.")
     }
 
+    fun previewSample() {
+        _state.value = DiagnosisUiState.Preview(Uri.parse("oliveme-sample://winter-cool"))
+    }
+
     fun cameraUnavailable(message: String) {
         _state.value = DiagnosisUiState.ChoosePhoto(message)
     }
@@ -134,9 +138,7 @@ class DiagnosisViewModel : ViewModel() {
         viewModelScope.launch {
             _state.value = DiagnosisUiState.Analyzing(1)
             val bytes = withContext(Dispatchers.IO) {
-                runCatching {
-                    uri?.let { context.contentResolver.openInputStream(it)?.use { stream -> stream.readBytes() } }
-                }.getOrNull()
+                ImageBytesLoader.fromUri(context.applicationContext, uri)
             }
             _state.value = DiagnosisUiState.Analyzing(2)
             val result = withContext(Dispatchers.IO) {
@@ -158,10 +160,7 @@ class DiagnosisViewModel : ViewModel() {
         viewModelScope.launch {
             _state.value = DiagnosisUiState.Analyzing(1)
             val bytes = withContext(Dispatchers.IO) {
-                ByteArrayOutputStream().use { output ->
-                    bitmap.compress(Bitmap.CompressFormat.JPEG, 82, output)
-                    output.toByteArray()
-                }
+                ImageBytesLoader.fromBitmap(bitmap)
             }
             _state.value = DiagnosisUiState.Analyzing(2)
             val result = withContext(Dispatchers.IO) {
@@ -194,21 +193,46 @@ data class MapUiState(
     val stores: List<OliveStore> = emptyList(),
     val selected: OliveStore? = null,
     val fallbackReason: String? = null,
+    val activeFilter: String = "전체",
+    val favoriteIds: Set<String> = emptySet(),
 )
 
 class MapViewModel : ViewModel() {
     private val _state = MutableStateFlow(MapUiState())
     val state: StateFlow<MapUiState> = _state.asStateFlow()
 
-    fun loadStores(x: Double? = null, y: Double? = null) {
+    fun loadStores(userId: String = UiText.DEMO_USER_ID, x: Double? = null, y: Double? = null) {
         viewModelScope.launch {
             val stores = withContext(Dispatchers.IO) { AppGraph.storeRepository.nearbyOliveYoung(x, y) }
-            _state.value = MapUiState(stores = stores, selected = stores.firstOrNull(), fallbackReason = if (x == null || y == null) "현재 위치 대신 부산대 기준 매장을 표시합니다." else null)
+            val favorites = withContext(Dispatchers.IO) { AppGraph.storeRepository.favorites(userId).map { it.id }.toSet() }
+            _state.value = MapUiState(
+                stores = stores,
+                selected = stores.firstOrNull(),
+                fallbackReason = if (x == null || y == null) "현재 위치 대신 부산대 기준 매장을 표시합니다." else null,
+                favoriteIds = favorites,
+            )
         }
     }
 
     fun select(store: OliveStore) {
         _state.value = _state.value.copy(selected = store)
+    }
+
+    fun setFilter(filter: String) {
+        _state.value = _state.value.copy(activeFilter = filter)
+    }
+
+    fun toggleFavorite(userId: String, store: OliveStore) {
+        viewModelScope.launch {
+            val current = _state.value.favoriteIds
+            if (store.id in current) {
+                withContext(Dispatchers.IO) { AppGraph.storeRepository.removeFavorite(userId, store.id) }
+                _state.value = _state.value.copy(favoriteIds = current - store.id)
+            } else {
+                withContext(Dispatchers.IO) { AppGraph.storeRepository.saveFavorite(userId, store) }
+                _state.value = _state.value.copy(favoriteIds = current + store.id)
+            }
+        }
     }
 }
 
