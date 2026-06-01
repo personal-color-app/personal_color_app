@@ -28,7 +28,6 @@ class MyPageActivity : ComponentActivity() {
                     user = user,
                     onBack = { finish() },
                     onSettings = { startActivity(settingsIntent(user)) },
-                    onEdit = { startActivity(settingsIntent(user)) },
                     onSaveReport = { Toast.makeText(this, "리포트를 저장했습니다.", Toast.LENGTH_SHORT).show() },
                     onShareReport = { shareReport() },
                     onOpenResult = { startActivity(resultIntent(user)) },

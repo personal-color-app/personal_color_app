@@ -103,7 +103,7 @@ fun MapScreen(
                     .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                listOf("전체", "영업 중", "드러그스토어", "백화점", "브랜드샵", "즐겨찾기").forEach { filter ->
+                listOf("전체", "영업 중", "저장").forEach { filter ->
                     Pill(filter, selected = state.activeFilter == filter) { onFilter(filter) }
                 }
             }
@@ -151,7 +151,7 @@ fun MapScreen(
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Serif,
                     )
-                    Text("부산 금정구 부산대학로 일대 · sample fallback", color = OliveTextDim, fontSize = 11.sp)
+                    Text("부산 금정구 부산대학로 일대 · 기준 추천 매장", color = OliveTextDim, fontSize = 11.sp)
                 }
                 Text(state.activeFilter, color = OlivePrimaryDeep, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
@@ -308,21 +308,23 @@ private fun StoreCard(
                 Text(store.distanceLabel, color = OliveTextDim, fontSize = 11.sp)
             }
         }
-        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            IconButton(onClick = onFavorite, modifier = Modifier.size(34.dp)) {
-                Icon(
-                    if (favorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                    contentDescription = "즐겨찾기",
-                    tint = OlivePrimaryDeep,
-                )
-            }
-            IconButton(
-                onClick = onDirections,
-                modifier = Modifier
-                    .size(34.dp)
-                    .background(OliveAccentSoft, RoundedCornerShape(9.dp)),
-            ) {
-                Icon(Icons.Filled.Directions, contentDescription = "길찾기", tint = OliveAccent, modifier = Modifier.size(18.dp))
+        if (selected) {
+            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                IconButton(onClick = onFavorite, modifier = Modifier.size(34.dp)) {
+                    Icon(
+                        if (favorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                        contentDescription = "즐겨찾기",
+                        tint = OlivePrimaryDeep,
+                    )
+                }
+                IconButton(
+                    onClick = onDirections,
+                    modifier = Modifier
+                        .size(34.dp)
+                        .background(OliveAccentSoft, RoundedCornerShape(9.dp)),
+                ) {
+                    Icon(Icons.Filled.Directions, contentDescription = "길찾기", tint = OliveAccent, modifier = Modifier.size(18.dp))
+                }
             }
         }
     }
@@ -330,8 +332,6 @@ private fun StoreCard(
 
 private fun MapUiState.filteredStores(): List<OliveStore> =
     when (activeFilter) {
-        "즐겨찾기" -> stores.filter { it.id in favoriteIds }
-        "백화점" -> stores.filter { it.name.contains("동래") || it.name.contains("구서") }.ifEmpty { stores }
-        "브랜드샵" -> stores.filter { it.name.contains("장전") }.ifEmpty { stores }
+        "저장" -> stores.filter { it.id in favoriteIds }
         else -> stores
     }
