@@ -1,0 +1,42 @@
+[
+  {
+    "id": "pnu-1",
+    "name": "올리브영 부산대점",
+    "address": "부산 금정구 부산대학로 63",
+    "distanceLabel": "320m",
+    "lat": 35.2315,
+    "lng": 129.0840
+  },
+  {
+    "id": "pnu-2",
+    "name": "올리브영 장전역점",
+    "address": "부산 금정구 장전온천천로 48",
+    "distanceLabel": "710m",
+    "lat": 35.2380,
+    "lng": 129.0880
+  },
+  {
+    "id": "pnu-3",
+    "name": "올리브영 온천장점",
+    "address": "부산 동래구 온천장로 91",
+    "distanceLabel": "1.8km",
+    "lat": 35.2211,
+    "lng": 129.0835
+  },
+  {
+    "id": "pnu-4",
+    "name": "올리브영 구서점",
+    "address": "부산 금정구 구서로 10",
+    "distanceLabel": "2.1km",
+    "lat": 35.2476,
+    "lng": 129.0925
+  },
+  {
+    "id": "pnu-5",
+    "name": "올리브영 동래역점",
+    "address": "부산 동래구 중앙대로 1325",
+    "distanceLabel": "3.4km",
+    "lat": 35.2053,
+    "lng": 129.0786
+  }
+]
