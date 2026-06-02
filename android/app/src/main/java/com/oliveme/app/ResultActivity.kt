@@ -8,17 +8,21 @@ import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import com.oliveme.app.data.repository.AppGraph
 import com.oliveme.app.ui.screens.ResultScreen
 import com.oliveme.app.ui.theme.OliveMeTheme
+import com.oliveme.app.util.IntentKeys
 
 class ResultActivity : ComponentActivity() {
     private val viewModel: ResultViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        AppGraph.init(this)
         val user = currentUser()
+        viewModel.load(user.userId, intent.getStringExtra(IntentKeys.DIAGNOSIS_ID))
         setContent {
-            OliveMeTheme {
+            OliveMeTheme(themeName = AppGraph.themePreferenceRepository.currentTheme()) {
                 val state by viewModel.state.collectAsState()
                 ResultScreen(
                     state = state,

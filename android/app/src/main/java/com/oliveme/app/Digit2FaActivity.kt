@@ -7,6 +7,7 @@ import androidx.activity.viewModels
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import com.oliveme.app.data.repository.AppGraph
 import com.oliveme.app.ui.screens.Digit2FaScreen
 import com.oliveme.app.ui.theme.OliveMeTheme
 import com.oliveme.app.util.IntentKeys
@@ -17,10 +18,11 @@ class Digit2FaActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        AppGraph.init(this)
         val user = currentUser()
         val expectedDigit = intent.safeInt(IntentKeys.EXPECTED_DIGIT, 1)
         setContent {
-            OliveMeTheme {
+            OliveMeTheme(themeName = AppGraph.themePreferenceRepository.currentTheme()) {
                 val state by viewModel.state.collectAsState()
                 LaunchedEffect(state) {
                     if (state is Digit2FaUiState.Passed) {

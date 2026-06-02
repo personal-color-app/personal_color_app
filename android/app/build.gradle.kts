@@ -17,8 +17,14 @@ fun projectSecret(name: String): String {
     candidates.filter { it.exists() }.forEach { file ->
         file.inputStream().use(props::load)
     }
-    return props.getProperty(name).orEmpty()
+    props.getProperty(name)?.let { return it.trim() }
+    return props.entries.firstOrNull { (key, _) ->
+        key.toString().trim() == name
+    }?.value?.toString()?.trim().orEmpty()
 }
+
+fun buildConfigString(value: String): String =
+    "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 
 android {
     namespace = "com.oliveme.app"
@@ -34,10 +40,11 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         manifestPlaceholders["kakaoNativeAppKey"] = projectSecret("KAKAO_NATIVE_APP_KEY")
 
-        buildConfigField("String", "GEMINI_API_KEY", "\"${projectSecret("GEMINI_API_KEY")}\"")
-        buildConfigField("String", "KAKAO_NATIVE_APP_KEY", "\"${projectSecret("KAKAO_NATIVE_APP_KEY")}\"")
-        buildConfigField("String", "KAKAO_REST_API_KEY", "\"${projectSecret("KAKAO_REST_API_KEY")}\"")
-        buildConfigField("String", "GEMINI_MODEL", "\"gemini-3.5-flash\"")
+        buildConfigField("String", "GEMINI_API_KEY", buildConfigString(projectSecret("GEMINI_API_KEY")))
+        buildConfigField("String", "KAKAO_NATIVE_APP_KEY", buildConfigString(projectSecret("KAKAO_NATIVE_APP_KEY")))
+        buildConfigField("String", "KAKAO_REST_API_KEY", buildConfigString(projectSecret("KAKAO_REST_API_KEY")))
+        buildConfigField("String", "GEMINI_MODEL", "\"gemini-2.5-flash\"")
+        buildConfigField("String", "BACKEND_BASE_URL", buildConfigString(projectSecret("BACKEND_BASE_URL").ifBlank { "http://127.0.0.1:8787/" }))
     }
 
     buildFeatures {
@@ -98,8 +105,9 @@ dependencies {
     implementation("com.github.bumptech.glide:glide:4.16.0")
 
     implementation("com.kakao.sdk:v2-user:2.20.6")
-    implementation("com.kakao.maps.open:android:2.13.2")
+    implementation("com.google.android.gms:play-services-location:21.3.0")
     implementation("org.tensorflow:tensorflow-lite:2.17.0")
+    implementation("com.google.mlkit:face-detection:16.1.7")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")

@@ -21,7 +21,7 @@ class MyPageActivity : ComponentActivity() {
         val user = currentUser()
         viewModel.load(user.userId)
         setContent {
-            OliveMeTheme {
+            OliveMeTheme(themeName = AppGraph.themePreferenceRepository.currentTheme()) {
                 val state by viewModel.state.collectAsState()
                 MyPageScreen(
                     state = state,
@@ -29,8 +29,12 @@ class MyPageActivity : ComponentActivity() {
                     onBack = { finish() },
                     onSettings = { startActivity(settingsIntent(user)) },
                     onSaveReport = { Toast.makeText(this, "리포트를 저장했습니다.", Toast.LENGTH_SHORT).show() },
-                    onShareReport = { shareReport() },
-                    onOpenResult = { startActivity(resultIntent(user)) },
+                    onShareReport = { shareReport(state.latestResult) },
+                    onOpenResult = { diagnosisId -> startActivity(resultIntent(user, diagnosisId)) },
+                    onDeleteHistory = { diagnosisId ->
+                        viewModel.deleteDiagnosis(user.userId, diagnosisId)
+                        Toast.makeText(this, "진단 이력이 삭제되었습니다.", Toast.LENGTH_SHORT).show()
+                    },
                     onOpenStore = { startActivity(mapIntent(user)) },
                     onMap = { startActivity(mapIntent(user)) },
                     onDiagnosis = { startActivity(diagnosisIntent(user)) },
@@ -39,8 +43,7 @@ class MyPageActivity : ComponentActivity() {
         }
     }
 
-    private fun shareReport() {
-        val result = com.oliveme.app.data.repository.DemoData.sampleResult("mypage share")
+    private fun shareReport(result: com.oliveme.app.data.repository.PersonalColorResult) {
         val send = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
             putExtra(Intent.EXTRA_SUBJECT, "OliveMe 리포트")

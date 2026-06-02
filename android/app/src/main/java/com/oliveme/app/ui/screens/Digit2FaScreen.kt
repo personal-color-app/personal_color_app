@@ -71,7 +71,7 @@ fun Digit2FaScreen(
         OliveCardBlock {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("등록 숫자 $expectedDigit 를 손으로 그려주세요.", color = OliveTextMid, fontSize = 18.sp)
-                Text("데모 계정은 숫자 1이 등록되어 있습니다.", color = OliveTextDim)
+                Text("이 계정은 숫자 1이 등록되어 있습니다.", color = OliveTextDim)
             }
         }
         Box(

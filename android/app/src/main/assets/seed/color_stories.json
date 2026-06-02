@@ -1,0 +1,26 @@
+[
+  {
+    "id": "story-cool-lip",
+    "title": "쿨톤 립 가이드",
+    "subtitle": "맑은 로즈와 베리 계열을 고르는 법",
+    "tag": "Makeup",
+    "body": "푸른기가 도는 로즈, 베리, 플럼 컬러는 쿨톤 얼굴의 대비를 선명하게 살려줍니다.",
+    "personalColorType": "겨울 쿨톤"
+  },
+  {
+    "id": "story-outer-depth",
+    "title": "딥톤 아우터",
+    "subtitle": "네이비와 와인으로 만드는 안정적인 첫인상",
+    "tag": "Fashion",
+    "body": "채도가 낮게 흐려진 색보다 깊고 차가운 네이비, 버건디 계열이 얼굴선을 또렷하게 잡아줍니다.",
+    "personalColorType": "겨울 쿨톤"
+  },
+  {
+    "id": "story-store-picks",
+    "title": "매장 추천템",
+    "subtitle": "진단 결과를 제품 선택으로 이어가기",
+    "tag": "Store",
+    "body": "리포트의 추천 팔레트와 유사한 색상명을 기준으로 립, 섀도, 니트를 비교해보세요.",
+    "personalColorType": null
+  }
+]

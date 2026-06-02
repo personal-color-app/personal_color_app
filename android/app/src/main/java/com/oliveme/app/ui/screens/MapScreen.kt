@@ -28,32 +28,39 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import android.os.Handler
+import android.os.Looper
+import android.webkit.JavascriptInterface
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import com.oliveme.app.MapUiState
 import com.oliveme.app.data.repository.OliveStore
 import com.oliveme.app.ui.theme.OliveAccent
 import com.oliveme.app.ui.theme.OliveAccentSoft
 import com.oliveme.app.ui.theme.OliveBg
-import com.oliveme.app.ui.theme.OliveBgSoft
 import com.oliveme.app.ui.theme.OliveCard
 import com.oliveme.app.ui.theme.OliveLine
 import com.oliveme.app.ui.theme.OlivePrimary
 import com.oliveme.app.ui.theme.OlivePrimaryDeep
 import com.oliveme.app.ui.theme.OlivePrimarySoft
-import com.oliveme.app.ui.theme.OliveSecondary
 import com.oliveme.app.ui.theme.OliveText
 import com.oliveme.app.ui.theme.OliveTextDim
 import com.oliveme.app.ui.theme.OliveTextMid
@@ -74,10 +81,13 @@ fun MapScreen(
             .fillMaxSize()
             .background(OliveBg),
     ) {
-        MockMapLayer(
+        WebMapLayer(
             stores = state.stores,
             selected = state.selected,
+            centerLat = state.centerLat,
+            centerLng = state.centerLng,
             onSelect = onSelect,
+            onMarkerOpen = onDirections,
             modifier = Modifier.fillMaxSize(),
         )
 
@@ -123,7 +133,7 @@ fun MapScreen(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .fillMaxHeight(0.52f)
+                .fillMaxHeight(0.42f)
                 .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
                 .background(OliveCard)
                 .padding(horizontal = 16.dp),
@@ -151,7 +161,7 @@ fun MapScreen(
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Serif,
                     )
-                    Text("부산 금정구 부산대학로 일대 · 기준 추천 매장", color = OliveTextDim, fontSize = 11.sp)
+                    Text(state.locationLabel, color = OliveTextDim, fontSize = 11.sp)
                 }
                 Text(state.activeFilter, color = OlivePrimaryDeep, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
@@ -177,6 +187,180 @@ fun MapScreen(
         }
     }
 }
+
+@Composable
+private fun WebMapLayer(
+    stores: List<OliveStore>,
+    selected: OliveStore?,
+    centerLat: Double,
+    centerLng: Double,
+    onSelect: (OliveStore) -> Unit,
+    onMarkerOpen: (OliveStore) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val latestStores by rememberUpdatedState(stores)
+    val latestOnSelect by rememberUpdatedState(onSelect)
+    val latestOnMarkerOpen by rememberUpdatedState(onMarkerOpen)
+    val html = remember(stores, selected, centerLat, centerLng) {
+        webMapHtml(stores, selected, centerLat, centerLng)
+    }
+    Box(
+        modifier.background(Color(0xFFE8EDE2)),
+    ) {
+        AndroidView(
+            modifier = Modifier.fillMaxSize(),
+            factory = { context ->
+                WebView(context).apply {
+                    webViewClient = WebViewClient()
+                    settings.javaScriptEnabled = true
+                    settings.domStorageEnabled = true
+                    settings.allowFileAccess = true
+                    settings.allowContentAccess = true
+                    settings.loadWithOverviewMode = true
+                    settings.useWideViewPort = true
+                    addJavascriptInterface(
+                        MapBridge(
+                            onSelect = { id ->
+                                latestStores.firstOrNull { it.id == id }?.let(latestOnSelect)
+                            },
+                            onOpen = { id ->
+                                latestStores.firstOrNull { it.id == id }?.let(latestOnMarkerOpen)
+                            },
+                        ),
+                        "OliveMeMap",
+                    )
+                    loadDataWithBaseURL(WebMapBaseUrl, html, "text/html", "UTF-8", null)
+                }
+            },
+            update = { webView ->
+                webView.loadDataWithBaseURL(WebMapBaseUrl, html, "text/html", "UTF-8", null)
+            },
+        )
+    }
+}
+
+private class MapBridge(
+    private val onSelect: (String) -> Unit,
+    private val onOpen: (String) -> Unit,
+) {
+    private val mainHandler = Handler(Looper.getMainLooper())
+
+    @JavascriptInterface
+    fun select(id: String) {
+        mainHandler.post { onSelect(id) }
+    }
+
+    @JavascriptInterface
+    fun open(id: String) {
+        mainHandler.post { onOpen(id) }
+    }
+}
+
+private fun webMapHtml(
+    stores: List<OliveStore>,
+    selected: OliveStore?,
+    centerLat: Double,
+    centerLng: Double,
+): String {
+    val markers = stores.mapNotNull { store ->
+        val lat = store.lat ?: return@mapNotNull null
+        val lng = store.lng ?: return@mapNotNull null
+        """
+        {
+          id: "${store.id.js()}",
+          name: "${store.name.js()}",
+          address: "${store.address.js()}",
+          selected: ${store.id == selected?.id},
+          lat: $lat,
+          lng: $lng
+        }
+        """.trimIndent()
+    }.joinToString(",")
+    return """
+        <!doctype html>
+        <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
+          <link rel="stylesheet" href="leaflet/leaflet.css"/>
+          <style>
+            html, body {
+              height: 100%;
+              width: 100%;
+              margin: 0;
+              padding: 0;
+              overflow: hidden;
+              background: #e8ede2;
+            }
+            #map {
+              position: fixed;
+              inset: 0;
+              height: 800px;
+              width: 100vw;
+              min-height: 800px;
+              min-width: 100vw;
+              background: #e8ede2;
+            }
+            .leaflet-control-attribution { display: none; }
+            .store-label {
+              background: #ffffff;
+              color: #3b3035;
+              border: 2px solid #df819a;
+              border-radius: 999px;
+              padding: 5px 10px;
+              font: 700 13px system-ui, -apple-system, sans-serif;
+              box-shadow: 0 4px 12px rgba(59, 48, 53, 0.16);
+              white-space: nowrap;
+            }
+            .store-label.selected {
+              background: #3b3035;
+              color: white;
+              border-color: #3b3035;
+            }
+          </style>
+        </head>
+        <body>
+          <div id="map"></div>
+          <script src="leaflet/leaflet.js"></script>
+          <script>
+            const mapElement = document.getElementById('map');
+            const viewportHeight = Math.max(window.innerHeight || 0, document.documentElement.clientHeight || 0, screen.height || 0, 800);
+            const viewportWidth = Math.max(window.innerWidth || 0, document.documentElement.clientWidth || 0, screen.width || 0, 360);
+            mapElement.style.height = viewportHeight + 'px';
+            mapElement.style.width = viewportWidth + 'px';
+            const stores = [$markers];
+            const center = stores.find(s => s.selected) || stores[0] || { lat: $centerLat, lng: $centerLng };
+            const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([center.lat, center.lng], 15);
+            L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+              maxZoom: 19,
+              crossOrigin: true
+            }).addTo(map);
+            setTimeout(() => {
+              map.invalidateSize(true);
+            }, 250);
+            stores.forEach(store => {
+              const icon = L.divIcon({
+                className: '',
+                html: '<button class="store-label ' + (store.selected ? 'selected' : '') + '">' + store.name + '</button>',
+                iconSize: null
+              });
+              const marker = L.marker([store.lat, store.lng], { icon }).addTo(map);
+              marker.on('click', () => {
+                if (window.OliveMeMap) window.OliveMeMap.open(store.id);
+              });
+            });
+          </script>
+        </body>
+        </html>
+    """.trimIndent()
+}
+
+private const val WebMapBaseUrl = "file:///android_asset/web/"
+
+private fun String.js(): String =
+    replace("\\", "\\\\")
+        .replace("\"", "\\\"")
+        .replace("\n", " ")
+        .replace("\r", " ")
 
 @Composable
 private fun SearchPill(storeCount: Int, modifier: Modifier = Modifier) {
@@ -209,71 +393,6 @@ private fun FloatingIconButton(onClick: () -> Unit, content: @Composable () -> U
 }
 
 @Composable
-private fun MockMapLayer(
-    stores: List<OliveStore>,
-    selected: OliveStore?,
-    onSelect: (OliveStore) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Box(
-        modifier
-            .background(Brush.verticalGradient(listOf(Color(0xFFE8EDE2), OliveBgSoft))),
-    ) {
-        repeat(8) { index ->
-            Box(
-                Modifier
-                    .align(if (index % 2 == 0) Alignment.TopStart else Alignment.CenterEnd)
-                    .padding(top = (70 + index * 62).dp, start = (index * 23 % 120).dp, end = (index * 17 % 100).dp)
-                    .fillMaxWidth(0.72f)
-                    .height(if (index % 3 == 0) 18.dp else 10.dp)
-                    .background(Color.White.copy(alpha = 0.58f), RoundedCornerShape(20.dp)),
-            )
-        }
-        Box(
-            Modifier
-                .align(Alignment.Center)
-                .size(82.dp)
-                .background(Color(0xFF2E7BBF).copy(alpha = 0.16f), CircleShape),
-        )
-        Box(
-            Modifier
-                .align(Alignment.Center)
-                .size(18.dp)
-                .background(Color(0xFF2E7BBF), CircleShape)
-                .border(3.dp, Color.White, CircleShape),
-        )
-        stores.forEachIndexed { index, store ->
-            val alignment = when (index % 5) {
-                0 -> Alignment.CenterStart
-                1 -> Alignment.TopCenter
-                2 -> Alignment.CenterEnd
-                3 -> Alignment.BottomStart
-                else -> Alignment.BottomEnd
-            }
-            val active = selected?.id == store.id
-            Text(
-                store.name.take(4),
-                modifier = Modifier
-                    .align(alignment)
-                    .padding(
-                        start = (30 + index * 8).dp,
-                        top = (120 + index * 16).dp,
-                        end = (34 + index * 7).dp,
-                        bottom = (165 - index * 11).dp,
-                    )
-                    .background(if (active) OliveText else OliveCard, RoundedCornerShape(50))
-                    .border(2.dp, if (active) OliveText else OlivePrimary, RoundedCornerShape(50))
-                    .clickable { onSelect(store) }
-                    .padding(horizontal = if (active) 14.dp else 10.dp, vertical = if (active) 7.dp else 5.dp),
-                color = if (active) Color.White else OliveText,
-                fontSize = if (active) 12.sp else 10.sp,
-                fontWeight = FontWeight.Bold,
-            )
-        }
-    }
-}
-
-@Composable
 private fun StoreCard(
     store: OliveStore,
     selected: Boolean,
@@ -298,7 +417,7 @@ private fun StoreCard(
                 .background(if (selected) OlivePrimaryDeep else OliveAccent, RoundedCornerShape(12.dp)),
             contentAlignment = Alignment.Center,
         ) {
-            Text(store.name.takeLast(2), color = Color.White, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Serif)
+            Icon(Icons.Filled.Storefront, contentDescription = null, tint = Color.White)
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(store.name, color = OliveText, fontWeight = FontWeight.Bold, fontSize = 14.sp)

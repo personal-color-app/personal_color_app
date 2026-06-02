@@ -4,6 +4,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,9 +12,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -83,21 +86,21 @@ fun OliveLogo(
         }
         OliveLogoVariant.Inline -> {
             Row(
-                modifier = modifier,
+                modifier = modifier.height(if (compact) 48.dp else 58.dp),
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Image(
                     painter = painterResource(R.drawable.oliveme_mark),
                     contentDescription = null,
-                    modifier = Modifier.size(if (compact) 34.dp else 44.dp),
+                    modifier = Modifier.size(if (compact) 30.dp else 44.dp),
                     contentScale = ContentScale.Fit,
                 )
-                Spacer(Modifier.width(4.dp))
+                Spacer(Modifier.width(6.dp))
                 Text(
                     text = "OliveMe",
                     color = Color(0xFF8B6B6F),
-                    fontSize = if (compact) 22.sp else 28.sp,
+                    fontSize = if (compact) 24.sp else 28.sp,
                     fontFamily = FontFamily.Serif,
                     fontWeight = FontWeight.Medium,
                 )
@@ -121,7 +124,7 @@ fun AppTopBar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(56.dp),
+            .height(64.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -147,7 +150,7 @@ fun AppTopBar(
         }
         if (title == "OliveMe") {
             OliveLogo(
-                modifier = Modifier.width(142.dp),
+                modifier = Modifier.width(178.dp),
                 compact = true,
                 variant = OliveLogoVariant.Inline,
             )
@@ -256,6 +259,7 @@ fun Pill(text: String, selected: Boolean = false, onClick: (() -> Unit)? = null)
 fun PastelIconTile(
     label: String,
     sub: String,
+    icon: ImageVector,
     modifier: Modifier = Modifier,
     color: Color = OlivePrimarySoft,
     accent: Color = OlivePrimaryDeep,
@@ -263,6 +267,7 @@ fun PastelIconTile(
 ) {
     Row(
         modifier = modifier
+            .heightIn(min = 112.dp)
             .background(OliveCard, RoundedCornerShape(16.dp))
             .border(1.dp, Color(0xFFF5ECE5), RoundedCornerShape(16.dp))
             .clickable(onClick = onClick)
@@ -277,18 +282,24 @@ fun PastelIconTile(
                 .background(color),
             contentAlignment = Alignment.Center,
         ) {
-            Text(label.take(1), color = accent, fontWeight = FontWeight.Black)
+            Icon(icon, contentDescription = label, tint = accent, modifier = Modifier.size(21.dp))
         }
-        Column {
-            Text(label, color = OliveText, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-            Text(sub, color = OliveTextDim, fontSize = 10.sp)
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(label, color = OliveText, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 2, lineHeight = 17.sp)
+            Text(sub, color = OliveTextDim, fontSize = 10.sp, maxLines = 2, lineHeight = 14.sp)
         }
     }
 }
 
 @Composable
 fun SwatchRow(colors: List<ColorItem>, swatchSize: Dp = 42.dp) {
-    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    Row(
+        modifier = Modifier.horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
         colors.forEach { item ->
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Box(

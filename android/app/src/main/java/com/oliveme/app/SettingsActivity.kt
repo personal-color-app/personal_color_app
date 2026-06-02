@@ -24,8 +24,8 @@ class SettingsActivity : ComponentActivity() {
         viewModel.load(user.userId)
 
         setContent {
-            OliveMeTheme {
-                val state by viewModel.state.collectAsState()
+            val state by viewModel.state.collectAsState()
+            OliveMeTheme(themeName = state.selectedTheme) {
                 LaunchedEffect(state.message) {
                     state.message?.let {
                         Toast.makeText(this@SettingsActivity, it, Toast.LENGTH_SHORT).show()
@@ -39,6 +39,7 @@ class SettingsActivity : ComponentActivity() {
                     onTest2Fa = { startActivity(digitIntent(user, UiText.DEMO_EXPECTED_DIGIT)) },
                     onDeleteHistory = { viewModel.deleteHistory(user.userId) },
                     onClearFavorites = { viewModel.clearFavorites(user.userId) },
+                    onThemeSelected = viewModel::setTheme,
                     onLogout = {
                         startActivity(Intent(this, LoginActivity::class.java))
                         finish()

@@ -28,3 +28,17 @@ interface KakaoLocalApiService {
         @Query("sort") sort: String = "distance",
     ): KakaoKeywordSearchResponse
 }
+
+interface BackendApiService {
+    @GET("v1/products/search")
+    suspend fun searchProducts(
+        @Query("query") query: String,
+        @Query("category") category: String? = null,
+        @Query("display") display: Int = 4,
+    ): BackendProductSearchResponse
+
+    @POST("v1/products/recommendations")
+    suspend fun recommendProducts(
+        @Body body: BackendProductRecommendationRequest,
+    ): BackendProductRecommendationResponse
+}

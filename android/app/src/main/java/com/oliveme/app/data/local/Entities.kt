@@ -1,6 +1,7 @@
 package com.oliveme.app.data.local
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 @Entity(tableName = "user_profiles")
@@ -14,6 +15,19 @@ data class UserProfileEntity(
     val updatedAt: Long,
 )
 
+@Entity(
+    tableName = "auth_credentials",
+    indices = [Index(value = ["userId"], unique = true)],
+)
+data class AuthCredentialEntity(
+    @PrimaryKey val email: String,
+    val userId: String,
+    val passwordHash: String,
+    val passwordSalt: String,
+    val createdAt: Long,
+    val updatedAt: Long,
+)
+
 @Entity(tableName = "digit_auth_configs")
 data class DigitAuthConfigEntity(
     @PrimaryKey val userId: String,
@@ -23,6 +37,16 @@ data class DigitAuthConfigEntity(
     val updatedAt: Long,
 )
 
+@Entity(tableName = "legal_consents")
+data class LegalConsentEntity(
+    @PrimaryKey val userId: String,
+    val policyVersion: String,
+    val privacyVersion: String,
+    val commerceVersion: String,
+    val agreedAt: Long,
+    val source: String,
+)
+
 @Entity(tableName = "diagnosis_history")
 data class DiagnosisHistoryEntity(
     @PrimaryKey val id: String,
@@ -30,6 +54,16 @@ data class DiagnosisHistoryEntity(
     val sourceImageUri: String?,
     val personalColorType: String,
     val englishLabel: String,
+    val season: String,
+    val subtype: String,
+    val temperature: String,
+    val value: String,
+    val chroma: String,
+    val contrast: String,
+    val confidence: Int,
+    val qualityLabel: String,
+    val heroAsset: String,
+    val sourceEvidence: String,
     val matchScore: Int,
     val description: String,
     val signature: String,
@@ -70,4 +104,16 @@ data class FavoriteStoreEntity(
     val phone: String?,
     val placeUrl: String?,
     val createdAt: Long,
+)
+
+@Entity(tableName = "color_stories")
+data class ColorStoryEntity(
+    @PrimaryKey val id: String,
+    val title: String,
+    val subtitle: String,
+    val tag: String,
+    val body: String,
+    val personalColorType: String?,
+    val sortOrder: Int,
+    val updatedAt: Long,
 )
