@@ -26,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.oliveme.app.SettingsUiState
@@ -50,6 +51,7 @@ fun SettingsScreen(
     onTest2Fa: () -> Unit,
     onDeleteHistory: () -> Unit,
     onClearFavorites: () -> Unit,
+    onThemeSelected: (String) -> Unit,
     onLogout: () -> Unit,
 ) {
     Column(
@@ -74,11 +76,15 @@ fun SettingsScreen(
             SettingsSection("계정") {
                 InfoLine("닉네임", user.displayName)
                 InfoLine("이메일", user.email)
-                InfoLine("로그인 방식", if (user.loginProvider == "kakao") "카카오" else "데모 계정")
-                Text("데모 계정은 임시 닉네임으로 시작하며, 실제 보안 계정으로 사용하지 않습니다.", color = OliveTextDim, fontSize = 12.sp, lineHeight = 18.sp)
+                InfoLine("로그인 방식", when (user.loginProvider) {
+                    "kakao" -> "카카오"
+                    "email" -> "이메일"
+                    else -> "이메일"
+                })
+                Text("프로필 정보와 로그인 상태는 앱 안에서 안전하게 관리됩니다.", color = OliveTextDim, fontSize = 12.sp, lineHeight = 18.sp)
             }
             SettingsSection("보안") {
-                InfoLine("손글씨 2차 인증", "데모 계정 숫자 1")
+                InfoLine("손글씨 2차 인증", "등록 숫자 1")
                 CompactAction(
                     text = "2FA 다시 테스트",
                     icon = Icons.Filled.Fingerprint,
@@ -90,7 +96,25 @@ fun SettingsScreen(
                 InfoLine("사진 처리", "압축 후 임시 분석")
                 InfoLine("원본 저장", "저장하지 않음")
                 InfoLine("Gemini 무료 티어", "입력 데이터가 서비스 개선에 사용될 수 있음")
-                Text("프로덕션 배포에는 API key를 앱에 직접 넣지 않고 backend proxy를 둡니다.", color = OliveTextDim, fontSize = 12.sp, lineHeight = 18.sp)
+                Text("프로덕션 배포에는 API key를 앱에 직접 넣지 않고 backend-proxy를 사용합니다.", color = OliveTextDim, fontSize = 12.sp, lineHeight = 18.sp)
+            }
+            SettingsSection("앱 테마") {
+                Text("진단 결과와 별개로 앱 분위기를 선택할 수 있습니다.", color = OliveTextDim, fontSize = 12.sp, lineHeight = 18.sp)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    state.availableThemes.forEach { theme ->
+                        ThemeChip(
+                            label = when (theme) {
+                                "spring" -> "봄"
+                                "summer" -> "여름"
+                                "autumn" -> "가을"
+                                "winter" -> "겨울"
+                                else -> "기본"
+                            },
+                            selected = state.selectedTheme == theme,
+                            onClick = { onThemeSelected(theme) },
+                        )
+                    }
+                }
             }
             SettingsSection("진단 기록") {
                 InfoLine("저장된 기록", "${state.historyCount}개")
@@ -103,7 +127,7 @@ fun SettingsScreen(
                 )
             }
             SettingsSection("위치와 매장") {
-                InfoLine("기준 지역", "부산대 기준 추천 매장")
+                InfoLine("기준 지역", "현재 위치 또는 기준 지역")
                 InfoLine("저장한 매장", "${state.favoriteCount}개")
                 CompactAction(
                     text = "저장 매장 비우기",
@@ -115,7 +139,7 @@ fun SettingsScreen(
             SettingsSection("앱 정보") {
                 InfoLine("버전", "0.1.0")
                 InfoLine("라이선스", "오픈소스 라이브러리 고지 필요")
-                InfoLine("알림", "현재는 앱 안 안내만 사용")
+                InfoLine("알림", "FCM 프로젝트 연결 전까지 앱 안 안내만 사용")
             }
             CompactAction(
                 text = "로그아웃",
@@ -126,6 +150,21 @@ fun SettingsScreen(
             )
         }
     }
+}
+
+@Composable
+private fun ThemeChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    Text(
+        label,
+        modifier = Modifier
+            .background(if (selected) OlivePrimarySoft else OliveCard, RoundedCornerShape(999.dp))
+            .border(1.dp, if (selected) OlivePrimaryDeep else OliveLine, RoundedCornerShape(999.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        color = if (selected) OlivePrimaryDeep else OliveTextMid,
+        fontWeight = FontWeight.Bold,
+        fontSize = 11.sp,
+    )
 }
 
 @Composable
@@ -152,7 +191,16 @@ private fun InfoLine(label: String, value: String) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(label, color = OliveTextDim, fontSize = 12.sp)
-        Text(value, color = OliveText, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+        Text(
+            value,
+            color = OliveText,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.End,
+            maxLines = 2,
+            lineHeight = 18.sp,
+            modifier = Modifier.weight(1f),
+        )
     }
 }
 

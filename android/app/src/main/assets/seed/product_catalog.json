@@ -1,0 +1,119 @@
+[
+  {
+    "id": "top-lavender-knit",
+    "category": "상의",
+    "title": "라벤더 니트",
+    "subtitle": "여름 쿨톤의 부드러운 분위기를 살리는 상의",
+    "colorHex": "#C9B8E8",
+    "personalColorTypes": ["여름 라이트", "여름 소프트", "여름 쿨톤"],
+    "searchKeywords": ["라벤더 니트", "여름쿨톤 상의", "쿨톤 니트"]
+  },
+  {
+    "id": "outer-navy-jacket",
+    "category": "아우터",
+    "title": "네이비 재킷",
+    "subtitle": "겨울 쿨톤의 대비감을 정리하는 기본 아우터",
+    "colorHex": "#1B2A4E",
+    "personalColorTypes": ["겨울 쿨톤", "겨울 딥", "겨울 브라이트"],
+    "searchKeywords": ["네이비 재킷", "겨울쿨톤 아우터", "딥톤 재킷"]
+  },
+  {
+    "id": "bottom-taupe-skirt",
+    "category": "하의",
+    "title": "토프 스커트",
+    "subtitle": "가을 소프트 타입에 맞는 차분한 하의",
+    "colorHex": "#B8A070",
+    "personalColorTypes": ["가을 소프트", "가을 웜톤"],
+    "searchKeywords": ["토프 스커트", "가을뮤트 하의", "웜톤 스커트"]
+  },
+  {
+    "id": "dress-coral",
+    "category": "원피스",
+    "title": "코랄 원피스",
+    "subtitle": "봄 웜톤의 맑은 생기를 살리는 원피스",
+    "colorHex": "#FF8F70",
+    "personalColorTypes": ["봄 라이트", "봄 브라이트", "봄 웜톤"],
+    "searchKeywords": ["코랄 원피스", "봄웜 원피스", "피치 원피스"]
+  },
+  {
+    "id": "shoes-cream-flat",
+    "category": "신발",
+    "title": "크림 플랫슈즈",
+    "subtitle": "밝은 웜톤 룩을 가볍게 마무리하는 신발",
+    "colorHex": "#FFF1C7",
+    "personalColorTypes": ["봄 라이트", "봄 웜톤"],
+    "searchKeywords": ["크림 플랫슈즈", "아이보리 플랫", "봄웜 신발"]
+  },
+  {
+    "id": "hat-smoky-blue-cap",
+    "category": "모자",
+    "title": "스모키 블루 캡",
+    "subtitle": "여름 쿨톤 캐주얼 룩에 어울리는 모자",
+    "colorHex": "#B7C7D9",
+    "personalColorTypes": ["여름 소프트", "여름 쿨톤"],
+    "searchKeywords": ["스모키 블루 캡", "여름쿨톤 모자", "쿨톤 캡"]
+  },
+  {
+    "id": "bag-fuchsia-mini",
+    "category": "가방",
+    "title": "푸시아 미니백",
+    "subtitle": "겨울 브라이트의 선명한 포인트 가방",
+    "colorHex": "#C13584",
+    "personalColorTypes": ["겨울 브라이트", "겨울 쿨톤"],
+    "searchKeywords": ["푸시아 미니백", "겨울브라이트 가방", "쿨톤 포인트백"]
+  },
+  {
+    "id": "accessory-silver-earring",
+    "category": "액세서리",
+    "title": "실버 이어링",
+    "subtitle": "쿨톤 얼굴 주변을 깨끗하게 정리하는 액세서리",
+    "colorHex": "#D8DEE9",
+    "personalColorTypes": ["여름 쿨톤", "겨울 쿨톤", "겨울 딥"],
+    "searchKeywords": ["실버 이어링", "쿨톤 액세서리", "실버 귀걸이"]
+  },
+  {
+    "id": "lip-cool-rose",
+    "category": "립",
+    "title": "쿨 로즈 립",
+    "subtitle": "겨울/여름 쿨톤용 로즈 컬러",
+    "colorHex": "#B85C7B",
+    "personalColorTypes": ["겨울 쿨톤", "여름 쿨톤", "여름 소프트"],
+    "searchKeywords": ["쿨톤 립", "로즈 립", "올리브영 쿨톤"]
+  },
+  {
+    "id": "eye-mauve-shadow",
+    "category": "아이",
+    "title": "모브 브라운 섀도",
+    "subtitle": "차분한 쿨톤 음영",
+    "colorHex": "#9D8497",
+    "personalColorTypes": ["여름 소프트", "여름 쿨톤", "겨울 쿨톤"],
+    "searchKeywords": ["모브 섀도", "쿨톤 섀도", "여름뮤트 섀도"]
+  },
+  {
+    "id": "base-pink-toneup",
+    "category": "베이스",
+    "title": "핑크 톤업 베이스",
+    "subtitle": "차가운 피부 표현을 맑게 보정하는 베이스",
+    "colorHex": "#F3D4DE",
+    "personalColorTypes": ["여름 라이트", "여름 쿨톤", "겨울 쿨톤"],
+    "searchKeywords": ["핑크 톤업 베이스", "쿨톤 베이스", "톤업 크림"]
+  },
+  {
+    "id": "cheek-coral",
+    "category": "치크",
+    "title": "라이트 코랄 치크",
+    "subtitle": "봄 타입의 혈색을 자연스럽게 살리는 치크",
+    "colorHex": "#FFB7A8",
+    "personalColorTypes": ["봄 라이트", "봄 웜톤"],
+    "searchKeywords": ["코랄 치크", "봄웜 블러셔", "피치 블러셔"]
+  },
+  {
+    "id": "hair-chocolate-brown",
+    "category": "헤어",
+    "title": "초콜릿 브라운 헤어",
+    "subtitle": "가을 딥 타입에 어울리는 깊은 브라운",
+    "colorHex": "#5E3B2E",
+    "personalColorTypes": ["가을 딥", "가을 웜톤"],
+    "searchKeywords": ["초콜릿 브라운 염색", "가을딥 헤어", "웜톤 헤어컬러"]
+  }
+]

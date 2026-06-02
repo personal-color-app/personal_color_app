@@ -25,6 +25,18 @@ object ImageBytesLoader {
         compressDownsampled(bitmap)
     }.getOrNull()
 
+    fun fromAsset(context: Context, assetPath: String): ByteArray? = runCatching {
+        context.assets.open(assetPath).use { stream ->
+            BitmapFactory.decodeStream(stream)?.let(::compressDownsampled)
+        }
+    }.getOrNull()
+
+    fun decodePreviewFromUri(context: Context, uri: Uri): Bitmap? = runCatching {
+        context.contentResolver.openInputStream(uri)?.use { stream ->
+            BitmapFactory.decodeStream(stream)
+        }
+    }.getOrNull()
+
     private fun compressDownsampled(bitmap: Bitmap): ByteArray {
         val largestSide = max(bitmap.width, bitmap.height).coerceAtLeast(1)
         val scaled = if (largestSide > MaxDimension) {

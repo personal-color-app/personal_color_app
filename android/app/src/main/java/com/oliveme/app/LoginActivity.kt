@@ -18,7 +18,7 @@ class LoginActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         AppGraph.init(this)
         setContent {
-            OliveMeTheme {
+            OliveMeTheme(themeName = AppGraph.themePreferenceRepository.currentTheme()) {
                 val state by viewModel.state.collectAsState()
                 LaunchedEffect(state) {
                     when (val value = state) {
@@ -37,7 +37,9 @@ class LoginActivity : ComponentActivity() {
                     state = state,
                     onKakao = { viewModel.loginKakao(this) },
                     onEmailLogin = viewModel::loginDemo,
+                    onSignup = viewModel::registerEmail,
                     onDemoStart = viewModel::loginDemoWithRandomNickname,
+                    guestLegalConsentAccepted = AppGraph.consentPreferenceRepository.guestLegalConsentAccepted(),
                 )
             }
         }

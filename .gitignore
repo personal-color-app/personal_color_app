@@ -36,6 +36,7 @@ plan/
 android/.gradle/
 android/build/
 android/app/build/
+backend-proxy/node_modules/
 android/local.properties
 local.properties
 captures/

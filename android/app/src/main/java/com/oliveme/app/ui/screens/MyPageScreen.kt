@@ -20,15 +20,20 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Storefront
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -40,7 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.oliveme.app.MyPageUiState
-import com.oliveme.app.data.repository.DemoData
+import com.oliveme.app.data.local.DiagnosisHistoryEntity
 import com.oliveme.app.data.repository.PersonalColorResult
 import com.oliveme.app.data.repository.UserProfile
 import com.oliveme.app.ui.theme.OliveBg
@@ -63,13 +68,14 @@ fun MyPageScreen(
     onSettings: () -> Unit,
     onSaveReport: () -> Unit,
     onShareReport: () -> Unit,
-    onOpenResult: () -> Unit,
+    onOpenResult: (String?) -> Unit,
+    onDeleteHistory: (String) -> Unit,
     onOpenStore: () -> Unit,
     onMap: () -> Unit,
     onDiagnosis: () -> Unit,
 ) {
     var tab by remember { mutableIntStateOf(0) }
-    val latest = DemoData.sampleResult("mypage")
+    val latest = state.latestResult
     Column(
         Modifier
             .fillMaxSize()
@@ -88,8 +94,8 @@ fun MyPageScreen(
         )
         ProfileHeader(user, state)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            StatCell("${state.history.size + 1}", "진단 횟수", Modifier.weight(1f))
-            StatCell("${latest.matchScore}%", "매칭도", Modifier.weight(1f))
+            StatCell("${state.history.size}", "진단 횟수", Modifier.weight(1f))
+            StatCell(if (latest.isFallback) "가이드" else "${latest.matchScore}%", "분석 기준", Modifier.weight(1f))
             StatCell("${state.favorites.size}", "저장 매장", Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -98,8 +104,8 @@ fun MyPageScreen(
             }
         }
         when (tab) {
-            0 -> ReportTab(latest, onSaveReport, onShareReport, onDiagnosis, Modifier.weight(1f))
-            1 -> HistoryTab(state, onOpenResult, Modifier.weight(1f))
+            0 -> ReportTab(latest, state.history.isNotEmpty(), onSaveReport, onShareReport, onDiagnosis, Modifier.weight(1f))
+            1 -> HistoryTab(state, onOpenResult, onDeleteHistory, Modifier.weight(1f))
             else -> StoresTab(state, onOpenStore, onMap, Modifier.weight(1f))
         }
     }
@@ -120,13 +126,13 @@ private fun ProfileHeader(user: UserProfile, state: MyPageUiState) {
                 .background(heroGradient(), CircleShape),
             contentAlignment = Alignment.Center,
         ) {
-            Text(user.displayName.take(1), color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Icon(Icons.Filled.Person, contentDescription = null, tint = Color.White)
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(user.displayName, color = OliveText, fontSize = 17.sp, fontWeight = FontWeight.Bold)
             Text(user.email, color = OliveTextMid, fontSize = 11.sp)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Pill("겨울 쿨톤", selected = true)
+                Pill(state.latestResult.type, selected = true)
                 Pill("이력 ${state.history.size}")
             }
         }
@@ -150,6 +156,7 @@ private fun StatCell(num: String, label: String, modifier: Modifier = Modifier) 
 @Composable
 private fun ReportTab(
     latest: PersonalColorResult,
+    hasReport: Boolean,
     onSave: () -> Unit,
     onShare: () -> Unit,
     onDiagnosis: () -> Unit,
@@ -157,6 +164,18 @@ private fun ReportTab(
 ) {
     var menuOpen by remember { mutableIntStateOf(0) }
     LazyColumn(modifier = modifier, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        if (!hasReport) {
+            item {
+                OliveCardBlock {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text("아직 리포트가 없습니다.", color = OliveText, fontWeight = FontWeight.Bold)
+                        Text("사진을 추가하면 나에게 맞는 컬러와 제품 추천을 정리해드릴게요.", color = OliveTextDim)
+                        OliveButton("진단 시작하기", onClick = onDiagnosis)
+                    }
+                }
+            }
+            return@LazyColumn
+        }
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text("리포트 관리", color = OliveText, fontWeight = FontWeight.Bold)
@@ -202,8 +221,10 @@ private fun ReportTab(
                     }
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
-                    Text("매칭 정확도", color = Color.White.copy(alpha = 0.82f), fontSize = 11.sp)
-                    Text("${latest.matchScore}%", color = Color.White, fontFamily = FontFamily.Serif, fontSize = 20.sp)
+                    Text(if (latest.isFallback) "컬러 가이드" else "분석 기준", color = Color.White.copy(alpha = 0.82f), fontSize = 11.sp)
+                    if (!latest.isFallback) {
+                        Text("${latest.matchScore}%", color = Color.White, fontFamily = FontFamily.Serif, fontSize = 20.sp)
+                    }
                 }
             }
         }
@@ -249,11 +270,17 @@ private fun ReportTab(
 }
 
 @Composable
-private fun HistoryTab(state: MyPageUiState, onOpen: () -> Unit, modifier: Modifier = Modifier) {
+private fun HistoryTab(
+    state: MyPageUiState,
+    onOpen: (String?) -> Unit,
+    onDelete: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var pendingDelete by remember { mutableStateOf<DiagnosisHistoryEntity?>(null) }
     LazyColumn(modifier = modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
         if (state.history.isEmpty()) {
             item {
-                OliveCardBlock(Modifier.clickable(onClick = onOpen)) {
+                OliveCardBlock(Modifier.clickable { onOpen(null) }) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("최근 리포트", color = OliveText, fontWeight = FontWeight.Bold)
                         Text("저장된 진단이 없으면 최근 결과를 열어볼 수 있습니다.", color = OliveTextDim)
@@ -262,14 +289,53 @@ private fun HistoryTab(state: MyPageUiState, onOpen: () -> Unit, modifier: Modif
             }
         }
         items(state.history) { item ->
-            OliveCardBlock(Modifier.clickable(onClick = onOpen)) {
-                Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    Text(item.personalColorType, color = OliveText, fontWeight = FontWeight.Bold)
-                    Text(item.englishLabel, color = OlivePrimaryDeep)
-                    Text(item.description, color = OliveTextDim)
+            var menuOpen by remember(item.id) { mutableStateOf(false) }
+            OliveCardBlock(Modifier.clickable { onOpen(item.id) }) {
+                Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Text(item.personalColorType, color = OliveText, fontWeight = FontWeight.Bold)
+                        Text(item.englishLabel, color = OlivePrimaryDeep)
+                        Text(item.description, color = OliveTextDim)
+                    }
+                    Box {
+                        IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(36.dp)) {
+                            Icon(Icons.Filled.MoreVert, contentDescription = "진단 이력 더보기", tint = OliveTextMid)
+                        }
+                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            DropdownMenuItem(
+                                text = { Text("삭제") },
+                                onClick = {
+                                    menuOpen = false
+                                    pendingDelete = item
+                                },
+                            )
+                        }
+                    }
                 }
             }
         }
+    }
+    pendingDelete?.let { target ->
+        AlertDialog(
+            onDismissRequest = { pendingDelete = null },
+            title = { Text("진단 이력을 삭제할까요?") },
+            text = { Text("${target.personalColorType} 리포트가 이력에서 삭제됩니다.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onDelete(target.id)
+                        pendingDelete = null
+                    },
+                ) {
+                    Text("삭제", color = OlivePrimaryDeep)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDelete = null }) {
+                    Text("취소")
+                }
+            },
+        )
     }
 }
 
@@ -296,7 +362,7 @@ private fun StoresTab(state: MyPageUiState, onOpen: () -> Unit, onMap: () -> Uni
                             .background(OlivePrimaryDeep, RoundedCornerShape(12.dp)),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text(store.name.takeLast(2), color = Color.White, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Serif)
+                        Icon(Icons.Filled.Storefront, contentDescription = null, tint = Color.White)
                     }
                     Column {
                         Text(store.name, color = OliveText, fontWeight = FontWeight.Bold)

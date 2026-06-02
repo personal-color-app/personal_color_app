@@ -3,3 +3,6 @@
 GEMINI_API_KEY=
 KAKAO_NATIVE_APP_KEY=
 KAKAO_REST_API_KEY=
+## Local debug default. In emulator QA, run:
+## adb reverse tcp:8787 tcp:8787
+BACKEND_BASE_URL=http://127.0.0.1:8787/
