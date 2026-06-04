@@ -689,12 +689,12 @@ HTML 기준 확인:
 
 분배 원칙:
 
-- OliveMe는 팀원 A와 팀원 B가 공평하게 공동 작업한 프로젝트다.
+- OliveMe는 `wannagola`와 `robinhood0107`이 공평하게 공동 작업한 프로젝트다.
 - 두 팀원 모두 기획, 개발, 검수, 발표 준비에 참여했으며, 역할은 화면·자료·기술 영역에 따라 나눈다.
-- 팀원 A의 아이디어 기획, 사용자 시나리오, PPT/발표 자료, 디자인 방향 정리도 앱 완성에 필요한 핵심 작업으로 인정한다.
-- 팀원 B의 Android 구조, API/DB/ML/지도 연동, 오류 방어, QA 증빙도 앱 완성에 필요한 핵심 작업으로 인정한다.
+- `wannagola`의 아이디어 기획, 사용자 시나리오, PPT/발표 자료, 디자인 방향 정리도 앱 완성에 필요한 핵심 작업으로 인정한다.
+- `robinhood0107`의 Android 구조, API/DB/ML/지도 연동, 오류 방어, QA 증빙도 앱 완성에 필요한 핵심 작업으로 인정한다.
 
-팀원 A:
+wannagola:
 
 - 앱 아이디어 구체화, 핵심 사용자 여정, 발표 스토리라인 정리.
 - PPT, 발표 대본, 시연 순서, 채점표 대응 슬라이드 작성.
@@ -702,7 +702,7 @@ HTML 기준 확인:
 - Compose UI 개발 참여: Login, Main, Result, MyPage polish와 화면별 디자인 반영.
 - HTML 기준 스크린샷 대조와 시연 중 보이는 UI 결함 정리.
 
-팀원 B:
+robinhood0107:
 
 - Android 프로젝트 구조, Gradle/Manifest/resource, Activity/Intent 화면 연결.
 - ViewModel/Repository/Room entity/DAO/seed data와 demo 계정 데이터 유지.
