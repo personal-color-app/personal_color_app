@@ -687,20 +687,30 @@ HTML 기준 확인:
 
 ## 12. 2인 작업 분배
 
+분배 원칙:
+
+- 팀원 A는 아이디어 기획, 사용자 시나리오, PPT/발표 자료, 디자인 방향 정리까지 선행 기여가 있으므로 Android 구현 물량은 상대적으로 줄인다.
+- 팀원 B는 앱 구현, 외부 연동, 데이터 저장, 오류 방어, QA 증빙처럼 기술 난이도와 실패 리스크가 높은 작업을 더 많이 담당한다.
+- 최종 체감 비중은 A 40%, B 60% 정도로 둔다. 단, 발표 준비 기간에는 A의 발표/PPT 보강 시간을 구현 작업으로 환산해 인정한다.
+
 팀원 A:
 
-- Compose theme/common component.
-- Login/Digit2Fa/Main/Result/MyPage UI.
-- Activity/Intent 화면 연결.
-- HTML 스크린샷 대조.
+- 앱 아이디어 구체화, 핵심 사용자 여정, 발표 스토리라인 정리.
+- PPT, 발표 대본, 시연 순서, 채점표 대응 슬라이드 작성.
+- `Personalcolor design/` 기반 디자인 방향, 화면별 레이아웃/문구/상호작용 피드백.
+- Compose UI 중 시각 완성도가 중요한 화면 보조: Login, Main, Result, MyPage polish.
+- HTML 기준 스크린샷 대조와 시연 중 보이는 UI 결함 정리.
 
 팀원 B:
 
-- Gemini/Kakao/Room/TFLite/Repository.
-- camera/gallery/map/fallback.
-- `ImageBytesLoader`, share/location/favorite.
-- unit/test-android-apps QA artifact.
-- GitHub issue/PR 운영.
+- Android 프로젝트 구조, Gradle/Manifest/resource, Activity/Intent 화면 연결.
+- ViewModel/Repository/Room entity/DAO/seed data와 demo 계정 데이터 유지.
+- Gemini 진단 prompt/parser/fallback, Kakao Local, backend proxy, Naver commerce optional path.
+- TFLite 2FA, `ImageBytesLoader`, camera/gallery/photo quality, sample image 분석 흐름.
+- OSM WebView 지도, Google Maps 외부 Intent, 위치 권한, 즐겨찾기/길찾기 상태.
+- 설정, 법적 동의, 보안/secret 처리, API key 없음/네트워크 실패/권한 거부 방어.
+- unit test, `@test-android-apps` screenshot/UI tree/logcat/crash buffer, performance evidence.
+- GitHub issue/PR 운영, `docs/TRUTH_SPEC.md`와 QA 문서의 구현 drift 보정.
 
 공통:
 
@@ -708,6 +718,7 @@ HTML 기준 확인:
 - 채점표 증빙 체크.
 - 시연 리허설.
 - PR 리뷰와 issue close 확인.
+- 발표 전 최종 화면 점검과 역할별 질의응답 준비.
 
 ## 13. 자체 검토 결과
 
