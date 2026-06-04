@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="img/app-icon.png">
-    <img src="img/app-icon.png" alt="OliveMe 앱 아이콘" width="96">
+    <img src="img/app-icon.png" alt="OliveMe 앱 아이콘" width="144">
   </a>
 </p>
 
