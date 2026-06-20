@@ -48,7 +48,8 @@ class MapActivity : ComponentActivity() {
         val user = currentUser()
         userId = user.userId
         setContent {
-            OliveMeTheme(themeName = AppGraph.themePreferenceRepository.currentTheme()) {
+            val themeName by AppGraph.themePreferenceRepository.theme.collectAsState()
+            OliveMeTheme(themeName = themeName) {
                 val state by viewModel.state.collectAsState()
                 MapScreen(
                     state = state,

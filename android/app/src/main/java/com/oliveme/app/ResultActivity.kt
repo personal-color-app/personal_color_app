@@ -22,7 +22,8 @@ class ResultActivity : ComponentActivity() {
         val user = currentUser()
         viewModel.load(user.userId, intent.getStringExtra(IntentKeys.DIAGNOSIS_ID))
         setContent {
-            OliveMeTheme(themeName = AppGraph.themePreferenceRepository.currentTheme()) {
+            val themeName by AppGraph.themePreferenceRepository.theme.collectAsState()
+            OliveMeTheme(themeName = themeName) {
                 val state by viewModel.state.collectAsState()
                 ResultScreen(
                     state = state,
