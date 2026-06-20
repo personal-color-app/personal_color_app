@@ -90,6 +90,7 @@ fun Digit2FaScreen(
                     )
                 },
         ) {
+            val strokeColor = OlivePrimaryDeep
             Canvas(modifier = Modifier.fillMaxSize()) {
                 strokes.forEach { stroke ->
                     if (stroke.size > 1) {
@@ -99,7 +100,7 @@ fun Digit2FaScreen(
                         }
                         drawPath(
                             path = path,
-                            color = OlivePrimaryDeep,
+                            color = strokeColor,
                             style = Stroke(width = 18f, cap = StrokeCap.Round),
                         )
                     }

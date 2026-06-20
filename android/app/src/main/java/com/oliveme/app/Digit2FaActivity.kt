@@ -22,7 +22,8 @@ class Digit2FaActivity : ComponentActivity() {
         val user = currentUser()
         val expectedDigit = intent.safeInt(IntentKeys.EXPECTED_DIGIT, 1)
         setContent {
-            OliveMeTheme(themeName = AppGraph.themePreferenceRepository.currentTheme()) {
+            val themeName by AppGraph.themePreferenceRepository.theme.collectAsState()
+            OliveMeTheme(themeName = themeName) {
                 val state by viewModel.state.collectAsState()
                 LaunchedEffect(state) {
                     if (state is Digit2FaUiState.Passed) {

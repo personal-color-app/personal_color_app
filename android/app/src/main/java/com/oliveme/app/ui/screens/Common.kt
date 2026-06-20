@@ -315,12 +315,11 @@ fun SwatchRow(colors: List<ColorItem>, swatchSize: Dp = 42.dp) {
     }
 }
 
+@Composable
 fun heroGradient(): Brush = Brush.linearGradient(listOf(OlivePrimary, OliveSecondary))
 
 fun softBeautyGradient(): Brush = Brush.linearGradient(listOf(Color(0xFFFDF4F0), Color(0xFFF5EDF8), Color(0xFFFDEFE4)))
 
+@Composable
 fun safeComposeColor(hex: String): Color =
     runCatching { Color(android.graphics.Color.parseColor(hex)) }.getOrDefault(OliveAccent)
-
-val QuickActionLavender = OliveSecondary
-val QuickActionGold = OliveAccentSoft
