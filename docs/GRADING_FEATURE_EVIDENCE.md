@@ -2,7 +2,7 @@
 
 작성일: 2026-06-21  
 기준: `docs/TRUTH_SPEC.md`, `plan/personal_color_app_spec.md`, 실제 Android emulator QA  
-최신 QA artifact: `/tmp/oliveme-grading-final-20260621-125344`
+최신 QA artifact: `/tmp/oliveme-downloadmanager-qa-20260621-143414`
 
 이 문서는 발표/채점 때 바로 설명할 수 있도록 각 채점 항목을 기능, 구현 근거,
 스크린샷, QA 결과, 실패 방어 기준으로 다시 채점한 것이다. 점수는 과장하지 않고
@@ -14,7 +14,7 @@
 | --- | ---: | --- | --- | --- | --- | --- | --- |
 | Activity + Intent | 필수 | 만족 | Login, 2FA, Main, Diagnosis, Result, Map, MyPage, Settings 화면 전환 | `AndroidManifest.xml`, `LoginActivity`, `IntentKeys` | `img/main.png`, `img/result.png`, `img/map.png` | `ui/main-summary.txt`, `ui/result-summary.txt`, `ui/map-summary.txt` | extra 누락 시 safe user/result로 복구 |
 | Coroutine | 20 | 만족 | 로그인, 2FA, 진단, 지도, DB, 커머스 비동기 처리 | `ViewModels.kt`의 `viewModelScope`, `withContext(Dispatchers.IO)`, `suspend` DAO | `img/diagnosis-analyzing.png` | `ui/diagnosis-analyzing-summary.txt` | 실패는 state/fallback으로 전환 |
-| 다운로드/API 매니저 | 20 | 만족 | API 통신과 상품 이미지 다운로드/캐시 | `Retrofit/OkHttp`, `Glide` | `img/result-products.png` | `backend/backend-smoke-summary.txt`, `ui/result-products-deep-summary.txt` | 비렌더 상품 제외, 이미지 placeholder/error 유지 |
+| 다운로드/API 매니저 | 20 | 만족 | API 통신, 상품 이미지 캐시, 리포트 이미지 저장 | `Retrofit/OkHttp`, `Glide`, Android OS `DownloadManager` | `img/grading-downloadmanager-report-save-mypage.png`, `img/result-products.png` | `/tmp/oliveme-downloadmanager-qa-20260621-143414`, `backend/backend-smoke-summary.txt` | 비렌더 상품 제외, 이미지 placeholder/error 유지, 저장 실패 toast fallback |
 | Jetpack 3개 이상 | 30 | 만족 | Compose UI, Room DB, ViewModel/Lifecycle, ActivityResult | `build.gradle.kts`, `LegacyJetpackEvidence` | `img/main.png` | `ui/main-summary.txt` | Compose state 기반 화면 복구 |
 | 외부 app 연동 | 20 | 만족 | 갤러리, 카메라, 공유 chooser, Google Maps/browser | `DiagnosisActivity`, `ResultActivity`, `MapActivity` | `img/diagnosis-source-sheet.png`, `img/result-share.png`, `img/google-maps.png` | `ui/diagnosis-source-sheet-summary.txt`, `ui/result-share.xml`, `android/google-maps.png` | 앱 없음/취소 시 toast 또는 fallback |
 | DB | 30 | 만족 | 내부 로컬 Room DB | `OliveMeDatabase`, `OliveMeDao` | `img/mypage-history.png` | `ui/mypage-history-summary.txt`, `ui/mypage-saved-stores-summary.txt` | history/favorite empty state와 삭제 flow 제공 |
@@ -50,11 +50,13 @@ QA 판정:
 
 ## 2. 다운로드/API 매니저
 
-정확한 설명: **Retrofit + OkHttp 기반 API manager와 Glide 기반 이미지 다운로드/캐시**다.
+정확한 설명: **Retrofit + OkHttp 기반 API manager, Glide 기반 이미지
+다운로드/캐시, Android OS DownloadManager 기반 리포트 이미지 저장**이다.
 
-주의: Android OS의 `DownloadManager`를 직접 쓴 것은 아니다. 채점 기준 문서가
-`다운로드 매니저 (Retrofit + Glide)`로 표현하고 있으므로 발표에서는
-`Retrofit + Glide 기반 다운로드/API 처리`라고 말하는 것이 정확하다.
+채점 기준 자료에는 `Glide, Retrofit, Volley 등 다운로드 매니저 활용 시 20점`과
+`다운로드 매니저만 활용해도 점수 부여`가 명시되어 있다. 현재 앱은 기존
+`Retrofit + Glide` 구현에 더해 Result/MyPage의 `리포트 이미지 저장` 버튼에서
+Android OS `DownloadManager`를 직접 호출한다.
 
 구현 근거:
 
@@ -66,11 +68,21 @@ QA 판정:
 - `android/app/src/main/java/com/oliveme/app/ui/screens/ResultScreen.kt`
   - `Glide.with(imageView).load(product.imageUrl)`로 Naver 상품 썸네일 렌더링.
   - placeholder/error drawable로 이미지 실패 시 layout 깨짐 방지.
+- `android/app/src/main/java/com/oliveme/app/util/ReportDownloadManager.kt`
+  - `context.getSystemService(DownloadManager::class.java)`로 Android OS DownloadManager 사용.
+  - 앱이 생성한 PNG 리포트를 `DownloadManager.addCompletedDownload(...)`로 다운로드 목록에 등록.
+  - 같은 PNG를 `MediaStore.Images`의 `Pictures/OliveMe`에도 저장해 갤러리에서 확인 가능.
+- `ResultActivity`, `MyPageActivity`
+  - Result 하단과 MyPage 리포트 탭의 `리포트 이미지 저장` 버튼을 `ReportDownloadManager.saveReport(...)`에 연결.
+  - 이미지 생성/파일 저장은 `Dispatchers.IO`에서 실행하고, 중복 탭은 `저장 중` toast로 흡수.
 
 QA 판정:
 
 - backend-on smoke에서 `source=naver-shopping`, items 8, renderable 8, AI picks 3 확인.
 - Android Result 화면에서 실제 Naver 상품 썸네일과 링크 가능한 상품 카드 확인.
+- MyPage와 Result의 `리포트 이미지 저장`을 실제 emulator에서 각각 눌렀고, PNG가 `/sdcard/Pictures/OliveMe`와 MediaStore `Pictures/OliveMe/`에 생성되는 것을 확인.
+- 저장 시 logcat에서 MediaProvider 저장 완료와 DownloadProvider notification event를 확인했고, 두 저장 flow 모두 crash buffer 0 lines.
+- Result/MyPage 리포트 저장은 backend/API 없이 로컬 PNG를 생성하므로 API-off 상태에서도 동작 가능하다.
 
 ## 3. Jetpack Library
 

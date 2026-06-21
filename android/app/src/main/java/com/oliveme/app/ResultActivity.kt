@@ -8,14 +8,20 @@ import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.lifecycleScope
 import com.oliveme.app.data.repository.AppGraph
 import com.oliveme.app.ui.screens.ResultScreen
 import com.oliveme.app.ui.theme.OliveMeTheme
 import com.oliveme.app.util.IntentKeys
 import com.oliveme.app.util.MapDataWarmup
+import com.oliveme.app.util.ReportDownloadManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class ResultActivity : ComponentActivity() {
     private val viewModel: ResultViewModel by viewModels()
+    private var reportDownloadRunning = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -34,11 +40,27 @@ class ResultActivity : ComponentActivity() {
                         viewModel.toggleSave()
                         Toast.makeText(this, "마이페이지에 저장되었어요.", Toast.LENGTH_SHORT).show()
                     },
+                    onDownloadReport = { downloadReport(state) },
                     onShare = { shareResult(state) },
                     onMap = { startActivity(mapIntent(user)) },
                     onMyPage = { startActivity(myPageIntent(user)) },
                 )
             }
+        }
+    }
+
+    private fun downloadReport(state: ResultUiState) {
+        if (reportDownloadRunning) {
+            Toast.makeText(this, "리포트 이미지를 저장하는 중입니다.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        reportDownloadRunning = true
+        lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                ReportDownloadManager.saveReport(applicationContext, state.result)
+            }
+            reportDownloadRunning = false
+            Toast.makeText(this@ResultActivity, result.message, Toast.LENGTH_SHORT).show()
         }
     }
 

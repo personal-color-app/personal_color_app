@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.MoreVert
@@ -75,6 +76,7 @@ fun ResultScreen(
     state: ResultUiState,
     onBack: () -> Unit,
     onSave: () -> Unit,
+    onDownloadReport: () -> Unit,
     onShare: () -> Unit,
     onMap: () -> Unit,
     onMyPage: () -> Unit,
@@ -92,6 +94,7 @@ fun ResultScreen(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 NearbyStoreCard(onClick = onMap)
+                SecondaryButton("리포트 이미지 저장", onClick = onDownloadReport)
                 OliveButton("마이페이지 저장", onClick = onMyPage)
             }
         },
@@ -125,6 +128,14 @@ fun ResultScreen(
                         Icon(Icons.Filled.MoreVert, contentDescription = "결과 더보기", tint = OliveText)
                     }
                     DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        DropdownMenuItem(
+                            leadingIcon = { Icon(Icons.Filled.Download, contentDescription = null) },
+                            text = { Text("리포트 이미지 저장") },
+                            onClick = {
+                                menuOpen = false
+                                onDownloadReport()
+                            },
+                        )
                         DropdownMenuItem(
                             text = { Text("공유") },
                             onClick = {
