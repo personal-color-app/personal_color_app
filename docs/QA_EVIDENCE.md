@@ -1,5 +1,24 @@
 # OliveMe QA Evidence
 
+## 2026-06-21 Android OS DownloadManager Report Image QA
+
+- Artifact directory: `/tmp/oliveme-downloadmanager-qa-20260621-143414`
+- Scope:
+  - Added visible `리포트 이미지 저장` actions to Result and MyPage.
+  - The report export creates an app-generated PNG image, saves it to `Pictures/OliveMe` through `MediaStore.Images`, and registers the completed PNG with Android OS `DownloadManager`.
+  - Heavy bitmap generation/file work is executed on `Dispatchers.IO`; repeated taps are absorbed with a `저장 중` toast instead of launching duplicate writes.
+- Build/install:
+  - `cmd.exe /C gradlew.bat :app:testDebugUnitTest :app:assembleDebug :app:installDebug --console=plain`: pass.
+  - `git diff --check -- . ':!LICENSE'`: pass.
+- Android E2E:
+  - Login -> email -> guest -> 2FA -> Main -> MyPage completed on `emulator-5554`.
+  - MyPage report tab showed the visible `리포트 이미지 저장` button without clipping. Evidence: `android/mypage-report-button.png`, `android/mypage-report.xml`.
+  - Tapping MyPage `리포트 이미지 저장` created `OliveMe_겨울_딥_(Winter_Deep)_20260621_053535.png` under both `/sdcard/Pictures/OliveMe` and the app external Pictures folder. MediaStore query returned the PNG with `relative_path=Pictures/OliveMe/` and `mime_type=image/png`. Evidence: `logs/report-image-files.txt`.
+  - Logcat showed MediaProvider file finalization and DownloadProvider notification events after the save, confirming the OS download provider path was exercised. Evidence: `logs/report-save-filtered-logcat.txt`.
+  - MyPage history -> Result opened the Result screen with the visible bottom `리포트 이미지 저장` action. Evidence: `android/result-screen.png`, `android/result-screen.xml`.
+  - Tapping Result `리포트 이미지 저장` created another PNG, `OliveMe_겨울_딥_(Winter_Deep)_20260621_053639.png`, visible in `/sdcard/Pictures/OliveMe` and MediaStore. Evidence: `logs/result-report-save-files.txt`.
+  - Crash buffers after MyPage and Result report saves were both 0 lines: `logs/crash-after-report-save.txt`, `logs/crash-after-result-report-save.txt`.
+
 ## 2026-06-21 Grading Evidence + Full Screenshot QA
 
 - Artifact directory: `/tmp/oliveme-grading-final-20260621-125344`

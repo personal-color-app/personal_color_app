@@ -8,13 +8,19 @@ import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.lifecycleScope
 import com.oliveme.app.data.repository.AppGraph
 import com.oliveme.app.ui.screens.MyPageScreen
 import com.oliveme.app.ui.theme.OliveMeTheme
 import com.oliveme.app.util.MapDataWarmup
+import com.oliveme.app.util.ReportDownloadManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MyPageActivity : ComponentActivity() {
     private val viewModel: MyPageViewModel by viewModels()
+    private var reportDownloadRunning = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -31,7 +37,7 @@ class MyPageActivity : ComponentActivity() {
                     user = user,
                     onBack = { finish() },
                     onSettings = { startActivity(settingsIntent(user)) },
-                    onSaveReport = { Toast.makeText(this, "리포트를 저장했습니다.", Toast.LENGTH_SHORT).show() },
+                    onSaveReport = { downloadReport(state.latestResult) },
                     onShareReport = { shareReport(state.latestResult) },
                     onOpenResult = { diagnosisId -> startActivity(resultIntent(user, diagnosisId)) },
                     onDeleteHistory = { diagnosisId ->
@@ -43,6 +49,21 @@ class MyPageActivity : ComponentActivity() {
                     onDiagnosis = { startActivity(diagnosisIntent(user)) },
                 )
             }
+        }
+    }
+
+    private fun downloadReport(result: com.oliveme.app.data.repository.PersonalColorResult) {
+        if (reportDownloadRunning) {
+            Toast.makeText(this, "리포트 이미지를 저장하는 중입니다.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        reportDownloadRunning = true
+        lifecycleScope.launch {
+            val download = withContext(Dispatchers.IO) {
+                ReportDownloadManager.saveReport(applicationContext, result)
+            }
+            reportDownloadRunning = false
+            Toast.makeText(this@MyPageActivity, download.message, Toast.LENGTH_SHORT).show()
         }
     }
 

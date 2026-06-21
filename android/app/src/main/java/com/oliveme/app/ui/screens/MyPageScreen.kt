@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
@@ -234,7 +235,8 @@ private fun ReportTab(
                 }
                 DropdownMenu(expanded = menuOpen == 1, onDismissRequest = { menuOpen = 0 }) {
                     DropdownMenuItem(
-                        text = { Text("리포트 저장") },
+                        leadingIcon = { Icon(Icons.Filled.Download, contentDescription = null) },
+                        text = { Text("리포트 이미지 저장") },
                         onClick = {
                             menuOpen = 0
                             onSave()
@@ -249,6 +251,9 @@ private fun ReportTab(
                     )
                 }
             }
+        }
+        item {
+            SecondaryButton("리포트 이미지 저장", onClick = onSave)
         }
         item {
             Column(

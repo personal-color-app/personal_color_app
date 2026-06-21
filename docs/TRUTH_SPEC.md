@@ -74,14 +74,14 @@ OliveMe는 사용자가 얼굴 사진을 선택하거나 촬영하면 Gemini Vis
 | --- | --- |
 | Activity 3개 이상 + Intent | `LoginActivity`, `Digit2FaActivity`, `MainActivity`, `DiagnosisActivity`, `ResultActivity`, `MapActivity`, `MyPageActivity`; `IntentKeys`로 user/result extra 전달 |
 | Coroutine | `viewModelScope`, `suspend`, `withContext(Dispatchers.IO)` |
-| 다운로드/API 매니저 | Retrofit API service, Glide dependency |
+| 다운로드/API 매니저 | Retrofit API service, Glide 상품 이미지 다운로드/캐시, Android OS DownloadManager 리포트 이미지 저장 |
 | Jetpack 3개 이상 | Room, Compose, ViewModel, plus `LegacyJetpackEvidence`로 ViewPager2/Fragment/RecyclerView/DrawerLayout 증빙 |
 | 외부 앱 연동 | 갤러리 선택, 카메라 preview, share Intent 목표 |
 | API 3개 이상 | Gemini, Kakao Login, Kakao Local REST, OSM tile/WebView 지도, Google Maps 외부 Intent |
 | DB | Room: user, digit auth, diagnosis history, colors, products, favorite stores |
 | ML 모델 | 직접 학습한 MNIST TFLite digit model asset |
 | 안정성 | 모든 취소/권한/API/model 실패를 crash-free fallback으로 처리 |
-| 완성도 | HTML 기준 버튼/탭/지도/마이페이지/저장/공유 동작을 구현 목표로 추적 |
+| 완성도 | HTML 기준 버튼/탭/지도/마이페이지/저장/공유/리포트 이미지 저장 동작을 구현 목표로 추적 |
 
 중요: `LegacyJetpackEvidence`는 채점 증빙용 숨은/보조 Android View 계층이다. 현재 사용자 화면의 결과 탭은 user-visible `ViewPager2`가 아니라 Compose tab state로 동작한다.
 

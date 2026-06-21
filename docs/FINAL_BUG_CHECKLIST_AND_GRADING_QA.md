@@ -35,7 +35,7 @@ secret values here.
 | README screenshots | README links representative final screenshots and grading evidence screenshots | pass | `README.md`, `img/grading-*.png` |
 | Desktop screenshot export | Latest screenshots copied to `C:\Users\pjjpj\Desktop\새 폴더` with descriptive names | pass | same filenames as `img/grading-*.png`; copied during `/tmp/oliveme-grading-final-20260621-125344` run |
 | Coroutine | `viewModelScope`, `withContext(Dispatchers.IO)`, `suspend` evidence plus E2E screenshot | pass | `img/diagnosis-analyzing.png`, `ui/diagnosis-analyzing-summary.txt` |
-| Download/API manager | Retrofit/OkHttp + Glide evidence, not falsely claiming Android OS `DownloadManager` | pass | `img/result-products.png`, `backend/backend-smoke-summary.txt` |
+| Download/API manager | Retrofit/OkHttp + Glide evidence plus direct Android OS `DownloadManager` report-image export | pass | `img/result-products.png`, `/tmp/oliveme-downloadmanager-qa-20260621-143414`, `ReportDownloadManager.kt` |
 | Jetpack | Compose, Room, ViewModel/Lifecycle, ActivityResult, LegacyJetpackEvidence | pass | `img/main.png`, source audit |
 | External app | Gallery/camera entry, share chooser, Google Maps external path | pass | `img/diagnosis-source-sheet.png`, `img/result-share.png`, `img/google-maps.png` |
 | Room DB | Local Room DB history and saved stores | pass | `img/mypage-history.png`, `img/mypage-saved-stores.png` |
