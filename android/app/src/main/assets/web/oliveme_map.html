@@ -1,0 +1,660 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
+  <link rel="stylesheet" href="leaflet/leaflet.css"/>
+  <style>
+    html, body {
+      height: 100%;
+      width: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #e8ede2;
+    }
+    #map {
+      position: fixed;
+      inset: 0;
+      height: 100vh;
+      width: 100vw;
+      min-height: 800px;
+      min-width: 100vw;
+      background:
+        repeating-linear-gradient(28deg, rgba(255,255,255,0.56) 0 10px, transparent 10px 132px),
+        repeating-linear-gradient(96deg, rgba(217,226,208,0.78) 0 6px, transparent 6px 104px),
+        #e8ede2;
+    }
+    .leaflet-control-attribution { display: none; }
+    .leaflet-tile { will-change: auto; }
+    .map-zoom-controls {
+      position: fixed;
+      left: 16px;
+      top: 184px;
+      z-index: 900;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .map-zoom-controls button {
+      width: 34px;
+      height: 34px;
+      border: 2px solid rgba(215, 123, 148, 0.72);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.94);
+      color: #bd607a;
+      font: 700 22px system-ui, -apple-system, sans-serif;
+      line-height: 28px;
+      box-shadow: 0 5px 14px rgba(59, 48, 53, 0.16);
+    }
+    .map-zoom-controls button:disabled {
+      opacity: 0.48;
+      cursor: default;
+    }
+    .store-marker-shell {
+      background: transparent;
+      border: 0;
+    }
+    .store-marker {
+      position: relative;
+      width: 40px;
+      height: 52px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+      transform-origin: 20px 50px;
+    }
+    .store-marker svg {
+      display: block;
+      overflow: visible;
+    }
+    .store-marker-pin {
+      fill: #d77b94;
+      stroke: #ffffff;
+      stroke-width: 3;
+    }
+    .store-marker-center {
+      fill: #ffffff;
+    }
+    .store-marker.selected {
+      transform: scale(1.08);
+    }
+    .store-marker.selected .store-marker-pin {
+      fill: #bd607a;
+    }
+    .store-marker:focus-visible .store-marker-pin {
+      stroke: #3b3035;
+    }
+    .store-label {
+      background: #ffffff;
+      color: #3b3035;
+      border: 2px solid #df819a;
+      border-radius: 999px;
+      padding: 7px 14px;
+      font: 700 15px system-ui, -apple-system, sans-serif;
+      box-shadow: 0 6px 16px rgba(59, 48, 53, 0.18);
+      white-space: nowrap;
+    }
+    .store-label::before {
+      display: none;
+    }
+    .store-label.selected {
+      border-color: #df819a;
+    }
+    .store-cluster-shell {
+      background: transparent;
+      border: 0;
+    }
+    .store-cluster {
+      width: 46px;
+      height: 46px;
+      border-radius: 999px;
+      border: 3px solid rgba(255, 255, 255, 0.96);
+      background: #bd607a;
+      color: #ffffff;
+      cursor: pointer;
+      font: 800 15px system-ui, -apple-system, sans-serif;
+      box-shadow: 0 8px 18px rgba(59, 48, 53, 0.24);
+    }
+    .store-cluster:focus-visible {
+      outline: 2px solid #3b3035;
+      outline-offset: 2px;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div class="map-zoom-controls">
+    <button type="button" id="zoom-in" aria-label="지도 확대">+</button>
+    <button type="button" id="zoom-out" aria-label="지도 축소">-</button>
+  </div>
+  <script src="leaflet/leaflet.js"></script>
+  <script>
+    (function () {
+      'use strict';
+
+      const mapElement = document.getElementById('map');
+      const zoomInButton = document.getElementById('zoom-in');
+      const zoomOutButton = document.getElementById('zoom-out');
+      const clusterZoomThreshold = 15;
+      const clusterRadiusPx = 58;
+      const minMapZoom = 14;
+      const maxMapZoom = 20;
+      const zoomButtonDebounceMs = 420;
+      const viewportDebounceMs = 250;
+      const fallbackCenter = { lat: 35.2310, lng: 129.0842 };
+      const state = {
+        map: null,
+        tileLayer: null,
+        markerLayer: null,
+        clusterLayer: null,
+        stores: [],
+        selectedId: null,
+        center: fallbackCenter,
+        zoom: 16,
+        initialViewApplied: false,
+        userAdjustedMap: false,
+        renderFrame: null,
+        lastZoomButtonAt: 0,
+        viewportReportTimer: null,
+        lastReportedViewport: null,
+        lastDragAt: 0,
+        readyReported: false,
+        lastSelectedId: null
+      };
+
+      function viewportHeight() {
+        return Math.max(window.innerHeight || 0, document.documentElement.clientHeight || 0, screen.height || 0, 800);
+      }
+
+      function viewportWidth() {
+        return Math.max(window.innerWidth || 0, document.documentElement.clientWidth || 0, screen.width || 0, 360);
+      }
+
+      function resizeMapElement() {
+        mapElement.style.height = viewportHeight() + 'px';
+        mapElement.style.width = viewportWidth() + 'px';
+      }
+
+      function finiteNumber(value) {
+        const number = Number(value);
+        return Number.isFinite(number) ? number : null;
+      }
+
+      function safeZoom(value) {
+        const zoom = Math.round(Number(value));
+        if (!Number.isFinite(zoom)) return 16;
+        return Math.max(minMapZoom, Math.min(maxMapZoom, zoom));
+      }
+
+      function safeString(value) {
+        return String(value || '');
+      }
+
+      function normalizePayload(input) {
+        const payload = typeof input === 'string' ? JSON.parse(input) : (input || {});
+        const stores = Array.isArray(payload.stores) ? payload.stores : [];
+        const normalizedStores = [];
+        stores.forEach((store) => {
+          const lat = finiteNumber(store.lat);
+          const lng = finiteNumber(store.lng);
+          if (lat === null || lng === null) return;
+          if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return;
+          normalizedStores.push({
+            id: safeString(store.id),
+            name: safeString(store.name),
+            address: safeString(store.address),
+            selected: Boolean(store.selected),
+            lat,
+            lng
+          });
+        });
+        const selectedId = safeString(payload.selectedId || '');
+        const selectedStore = normalizedStores.find((store) => store.id === selectedId) ||
+          normalizedStores.find((store) => store.selected);
+        normalizedStores.forEach((store) => {
+          store.selected = Boolean(selectedStore && store.id === selectedStore.id);
+        });
+        const centerLat = finiteNumber(payload.centerLat);
+        const centerLng = finiteNumber(payload.centerLng);
+        const center = selectedStore || normalizedStores[0] || {
+          lat: centerLat === null ? fallbackCenter.lat : centerLat,
+          lng: centerLng === null ? fallbackCenter.lng : centerLng
+        };
+        return {
+          stores: normalizedStores,
+          selectedId: selectedStore ? selectedStore.id : selectedId,
+          center: { lat: center.lat, lng: center.lng },
+          zoom: safeZoom(payload.zoom)
+        };
+      }
+
+      function reportReadyOnce() {
+        if (state.readyReported) return;
+        state.readyReported = true;
+        try {
+          if (window.OliveMeMap && window.OliveMeMap.ready) {
+            window.OliveMeMap.ready();
+          }
+        } catch (_error) {}
+      }
+
+      function escapeHtml(value) {
+        return String(value || '').replace(/[&<>"']/g, (character) => ({
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#39;'
+        })[character]);
+      }
+
+      function selectedStore() {
+        return state.stores.find((store) => store.id === state.selectedId) ||
+          state.stores.find((store) => store.selected) ||
+          null;
+      }
+
+      function ensureMap(payload) {
+        if (state.map) return true;
+        if (!window.L) return false;
+
+        resizeMapElement();
+        state.map = L.map('map', {
+          zoomControl: false,
+          attributionControl: false,
+          preferCanvas: true,
+          minZoom: minMapZoom,
+          maxZoom: maxMapZoom,
+          zoomAnimation: false,
+          fadeAnimation: false,
+          markerZoomAnimation: false
+        }).setView([payload.center.lat, payload.center.lng], payload.zoom);
+        state.markerLayer = L.layerGroup().addTo(state.map);
+        state.clusterLayer = L.layerGroup().addTo(state.map);
+        state.tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
+          subdomains: 'abcd',
+          minZoom: minMapZoom,
+          maxZoom: maxMapZoom,
+          crossOrigin: true,
+          updateWhenIdle: true,
+          updateWhenZooming: false,
+          keepBuffer: 0,
+          detectRetina: false
+        }).addTo(state.map);
+        state.tileLayer.on('tileerror', () => {
+          mapElement.style.backgroundColor = '#e8ede2';
+        });
+
+        window.setTimeout(() => {
+          try {
+            state.map.invalidateSize(true);
+            const sheetOffset = Math.min(220, Math.max(120, Math.round(viewportHeight() * 0.18)));
+            state.map.panBy([0, sheetOffset], { animate: false });
+            scheduleRenderStores();
+            ensureSelectedVisible(true);
+          } catch (_error) {}
+        }, 220);
+        window.setTimeout(() => {
+          if (state.tileLayer) state.tileLayer.options.keepBuffer = 1;
+        }, 650);
+
+        window.addEventListener('resize', () => {
+          resizeMapElement();
+          try {
+            state.map.invalidateSize(true);
+            scheduleRenderStores();
+          } catch (_error) {}
+        });
+        state.map.whenReady(() => {
+          reportReadyOnce();
+          updateZoomButtonState();
+          scheduleRenderStores();
+        });
+        state.map.on('dragstart', markDragStarted);
+        state.map.on('zoomstart', markUserAdjustedMap);
+        state.map.on('zoomend moveend', () => {
+          updateZoomButtonState();
+          scheduleRenderStores();
+          ensureSelectedVisible(false);
+          reportViewportDebounced();
+        });
+        state.initialViewApplied = true;
+        return true;
+      }
+
+      function setData(input) {
+        try {
+          const payload = normalizePayload(input);
+          state.stores = payload.stores;
+          state.selectedId = payload.selectedId;
+          state.center = payload.center;
+          state.zoom = payload.zoom;
+          if (!ensureMap(payload)) {
+            window.__oliveMePendingPayload = input;
+            return;
+          }
+          const selectedChanged = state.lastSelectedId !== state.selectedId;
+          state.lastSelectedId = state.selectedId;
+          const selected = selectedStore();
+          if (!state.initialViewApplied) {
+            state.map.setView([payload.center.lat, payload.center.lng], payload.zoom, { animate: false });
+            state.initialViewApplied = true;
+          } else if (selectedChanged && selected) {
+            state.map.panTo([selected.lat, selected.lng], { animate: false });
+          }
+          scheduleRenderStores();
+          window.setTimeout(() => ensureSelectedVisible(true), 0);
+        } catch (_error) {
+          reportReadyOnce();
+        }
+      }
+
+      function setSelection(id) {
+        const nextId = safeString(id);
+        if (!nextId) return;
+        state.selectedId = nextId;
+        state.stores.forEach((store) => {
+          store.selected = store.id === nextId;
+        });
+        const selected = selectedStore();
+        if (state.map && selected) {
+          state.map.panTo([selected.lat, selected.lng], { animate: false });
+          scheduleRenderStores();
+          ensureSelectedVisible(true);
+        }
+      }
+
+      function setViewport(center, zoom) {
+        if (!state.map || !center) return;
+        const lat = finiteNumber(center.lat);
+        const lng = finiteNumber(center.lng);
+        if (lat === null || lng === null) return;
+        state.map.setView([lat, lng], safeZoom(zoom), { animate: false });
+      }
+
+      function markUserAdjustedMap() {
+        state.userAdjustedMap = true;
+      }
+
+      function markDragStarted() {
+        state.userAdjustedMap = true;
+        state.lastDragAt = Date.now();
+      }
+
+      function reportViewportNow() {
+        if (!state.map || !state.userAdjustedMap || !window.OliveMeMap) return;
+        try {
+          const center = state.map.getCenter();
+          const zoom = state.map.getZoom();
+          if (Number.isFinite(center.lat) && Number.isFinite(center.lng) && Number.isFinite(zoom)) {
+            const roundedZoom = Math.round(zoom);
+            if (
+              state.lastReportedViewport &&
+              state.lastReportedViewport.zoom === roundedZoom &&
+              Math.abs(state.lastReportedViewport.lat - center.lat) < 0.00012 &&
+              Math.abs(state.lastReportedViewport.lng - center.lng) < 0.00012
+            ) {
+              return;
+            }
+            state.lastReportedViewport = { lat: center.lat, lng: center.lng, zoom: roundedZoom };
+            window.OliveMeMap.viewport(center.lat, center.lng, roundedZoom);
+          }
+        } catch (_error) {}
+      }
+
+      function reportViewportDebounced() {
+        if (state.viewportReportTimer !== null) window.clearTimeout(state.viewportReportTimer);
+        state.viewportReportTimer = window.setTimeout(() => {
+          state.viewportReportTimer = null;
+          reportViewportNow();
+        }, viewportDebounceMs);
+      }
+
+      function requestZoom(delta) {
+        if (!state.map) return;
+        const now = Date.now();
+        if (now - state.lastZoomButtonAt < zoomButtonDebounceMs) return;
+        const currentZoom = state.map.getZoom();
+        if (delta < 0 && currentZoom <= minMapZoom) {
+          updateZoomButtonState();
+          return;
+        }
+        if (delta > 0 && currentZoom >= maxMapZoom) {
+          updateZoomButtonState();
+          return;
+        }
+        state.lastZoomButtonAt = now;
+        markUserAdjustedMap();
+        if (delta > 0) {
+          state.map.zoomIn();
+        } else {
+          state.map.zoomOut();
+        }
+      }
+
+      function updateZoomButtonState() {
+        if (!state.map) return;
+        try {
+          const zoom = state.map.getZoom();
+          const atMin = zoom <= minMapZoom;
+          const atMax = zoom >= maxMapZoom;
+          zoomOutButton.disabled = atMin;
+          zoomInButton.disabled = atMax;
+          zoomOutButton.setAttribute('aria-disabled', String(atMin));
+          zoomInButton.setAttribute('aria-disabled', String(atMax));
+        } catch (_error) {}
+      }
+
+      function openStore(store) {
+        try {
+          if (window.OliveMeMap) window.OliveMeMap.open(store.id);
+        } catch (_error) {}
+      }
+
+      function markerHtml(store) {
+        const label = escapeHtml(store.name) + ' 위치';
+        return '<button type="button" class="store-marker ' + (store.selected ? 'selected' : '') + '" aria-label="' + label + '">' +
+          '<svg viewBox="0 0 40 52" aria-hidden="true">' +
+            '<path class="store-marker-pin" d="M20 50C20 50 6 32.8 6 20C6 11.7 12.3 5 20 5C27.7 5 34 11.7 34 20C34 32.8 20 50 20 50Z"/>' +
+            '<circle class="store-marker-center" cx="20" cy="20" r="7"/>' +
+            '<path d="M15 21.5H25L24.2 28H15.8L15 21.5Z" fill="#d77b94"/>' +
+            '<path d="M17 21.5V19.5C17 17.8 18.3 16.5 20 16.5C21.7 16.5 23 17.8 23 19.5V21.5" fill="none" stroke="#d77b94" stroke-width="1.7" stroke-linecap="round"/>' +
+          '</svg>' +
+        '</button>';
+      }
+
+      function clusterHtml(count) {
+        const label = count + '개 매장 묶음';
+        return '<button type="button" class="store-cluster" aria-label="' + label + '">' + count + '</button>';
+      }
+
+      function addStoreMarker(store) {
+        if (!state.markerLayer || !state.map) return null;
+        const icon = L.divIcon({
+          className: 'store-marker-shell',
+          html: markerHtml(store),
+          iconSize: [40, 52],
+          iconAnchor: [20, 50]
+        });
+        const marker = L.marker([store.lat, store.lng], { icon, zIndexOffset: store.selected ? 1000 : 100 });
+        marker.on('click', () => openStore(store));
+        if (store.selected) {
+          marker.bindTooltip(escapeHtml(store.name), {
+            permanent: true,
+            direction: 'right',
+            offset: [18, 0],
+            className: 'store-label selected',
+            interactive: true
+          });
+          marker.on('add', () => marker.openTooltip());
+          marker.on('tooltipopen', (event) => {
+            const element = event.tooltip.getElement();
+            if (element) element.onclick = () => openStore(store);
+          });
+        }
+        return marker;
+      }
+
+      function groupStoresByScreenDistance(items) {
+        const groups = [];
+        if (!state.map) return groups;
+        items.forEach((store) => {
+          const point = state.map.latLngToLayerPoint([store.lat, store.lng]);
+          let target = null;
+          for (const group of groups) {
+            if (point.distanceTo(group.point) <= clusterRadiusPx) {
+              target = group;
+              break;
+            }
+          }
+          if (!target) {
+            groups.push({ stores: [store], point, pointSum: point, latSum: store.lat, lngSum: store.lng });
+            return;
+          }
+          target.stores.push(store);
+          target.pointSum = target.pointSum.add(point);
+          target.point = target.pointSum.divideBy(target.stores.length);
+          target.latSum += store.lat;
+          target.lngSum += store.lng;
+        });
+        return groups;
+      }
+
+      function zoomToCluster(items) {
+        if (!state.map) return;
+        markUserAdjustedMap();
+        try {
+          const bounds = L.latLngBounds(items.map((store) => [store.lat, store.lng]));
+          if (bounds.isValid()) {
+            state.map.fitBounds(bounds.pad(0.45), { maxZoom: 17, animate: false });
+            return;
+          }
+        } catch (_error) {}
+        if (items[0]) state.map.setView([items[0].lat, items[0].lng], Math.min(state.map.getZoom() + 2, 17));
+      }
+
+      function addCluster(group) {
+        if (!state.clusterLayer || !state.map) return;
+        const baseLat = group.latSum / group.stores.length;
+        const baseLng = group.lngSum / group.stores.length;
+        if (!Number.isFinite(baseLat) || !Number.isFinite(baseLng)) return;
+        let clusterLatLng = L.latLng(baseLat, baseLng);
+        const selected = selectedStore();
+        if (selected) {
+          const selectedPoint = state.map.latLngToLayerPoint([selected.lat, selected.lng]);
+          const clusterPoint = state.map.latLngToLayerPoint(clusterLatLng);
+          const distance = selectedPoint.distanceTo(clusterPoint);
+          if (distance < 92) {
+            const dx = clusterPoint.x - selectedPoint.x;
+            const dy = clusterPoint.y - selectedPoint.y;
+            const length = Math.max(Math.sqrt(dx * dx + dy * dy), 1);
+            const shifted = L.point(
+              selectedPoint.x + (dx || -1) / length * 92,
+              selectedPoint.y + (dy || -1) / length * 92
+            );
+            clusterLatLng = state.map.layerPointToLatLng(shifted);
+          }
+        }
+        const icon = L.divIcon({
+          className: 'store-cluster-shell',
+          html: clusterHtml(group.stores.length),
+          iconSize: [46, 46],
+          iconAnchor: [23, 23]
+        });
+        const marker = L.marker(clusterLatLng, { icon, zIndexOffset: 700 }).addTo(state.clusterLayer);
+        marker.on('click', () => zoomToCluster(group.stores));
+      }
+
+      function ensureSelectedVisible(force) {
+        const selected = selectedStore();
+        if (!selected || !state.map) return;
+        if (!force && Date.now() - state.lastDragAt < 800) return;
+        try {
+          const point = state.map.latLngToContainerPoint([selected.lat, selected.lng]);
+          const width = viewportWidth();
+          const height = viewportHeight();
+          const leftPadding = 84;
+          const rightPadding = Math.min(310, Math.max(180, width * 0.36));
+          const topPadding = 136;
+          const bottomSheetTop = height * 0.58;
+          const maxSelectedY = Math.max(topPadding + 160, bottomSheetTop - 155);
+          let dx = 0;
+          let dy = 0;
+          if (point.x < leftPadding) dx = leftPadding - point.x;
+          if (point.x > width - rightPadding) dx = width - rightPadding - point.x;
+          if (point.y < topPadding) dy = topPadding - point.y;
+          if (point.y > maxSelectedY) dy = maxSelectedY - point.y;
+          if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+            state.map.panBy([-dx, -dy], { animate: false });
+          }
+        } catch (_error) {}
+      }
+
+      function scheduleRenderStores() {
+        if (state.renderFrame !== null) return;
+        state.renderFrame = window.requestAnimationFrame(() => {
+          state.renderFrame = null;
+          renderStores();
+        });
+      }
+
+      function visibleStoresForRender() {
+        if (!state.map) return state.stores;
+        try {
+          const bounds = state.map.getBounds().pad(0.35);
+          return state.stores.filter((store) => bounds.contains([store.lat, store.lng]));
+        } catch (_error) {
+          return state.stores;
+        }
+      }
+
+      function renderStores() {
+        if (!state.markerLayer || !state.clusterLayer || !state.map) return;
+        try {
+          state.markerLayer.clearLayers();
+          state.clusterLayer.clearLayers();
+          const selected = selectedStore();
+          if (selected) {
+            selected.selected = true;
+            const marker = addStoreMarker(selected);
+            if (marker) marker.addTo(state.markerLayer);
+          }
+          const otherStores = visibleStoresForRender().filter((store) => !selected || store.id !== selected.id);
+          if (state.map.getZoom() > clusterZoomThreshold) {
+            otherStores.forEach((store) => {
+              const marker = addStoreMarker(store);
+              if (marker) marker.addTo(state.markerLayer);
+            });
+            return;
+          }
+          groupStoresByScreenDistance(otherStores).forEach((group) => {
+            if (group.stores.length === 1) {
+              const marker = addStoreMarker(group.stores[0]);
+              if (marker) marker.addTo(state.markerLayer);
+            } else {
+              addCluster(group);
+            }
+          });
+        } catch (_error) {}
+      }
+
+      zoomInButton.addEventListener('click', () => requestZoom(1));
+      zoomOutButton.addEventListener('click', () => requestZoom(-1));
+
+      window.OliveMeMapRuntime = {
+        setData,
+        setSelection,
+        setViewport
+      };
+
+      resizeMapElement();
+      if (window.__oliveMePendingPayload) {
+        setData(window.__oliveMePendingPayload);
+        window.__oliveMePendingPayload = null;
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -3,6 +3,7 @@ package com.oliveme.app.data.repository
 import android.content.Context
 import android.util.Base64
 import com.kakao.sdk.user.UserApiClient
+import com.oliveme.app.BuildConfig
 import com.oliveme.app.data.local.AuthCredentialEntity
 import com.oliveme.app.data.local.LegalConsentEntity
 import com.oliveme.app.data.local.OliveMeDao
@@ -78,44 +79,61 @@ class LoginRepository(
     }
 
     suspend fun loginWithKakao(context: Context): Result<UserProfile> {
-        val result = suspendCancellableCoroutine<Result<UserProfile>> { continuation ->
-            val callback: (Throwable?) -> Unit = { loginError ->
-                if (loginError != null) {
-                    continuation.resume(Result.failure(loginError))
-                } else {
-                    UserApiClient.instance.me { kakaoUser, userError ->
-                        if (userError != null || kakaoUser == null) {
-                            continuation.resume(Result.failure(userError ?: IllegalStateException("카카오 사용자 정보가 비어 있습니다.")))
-                        } else {
-                            val user = UserProfile(
-                                userId = "kakao-${kakaoUser.id}",
-                                email = kakaoUser.kakaoAccount?.email.orEmpty(),
-                                displayName = kakaoUser.kakaoAccount?.profile?.nickname ?: "OliveMe User",
-                                profileImageUrl = kakaoUser.kakaoAccount?.profile?.thumbnailImageUrl,
-                                loginProvider = "kakao",
-                            )
-                            continuation.resume(Result.success(user))
-                        }
+        if (BuildConfig.KAKAO_NATIVE_APP_KEY.isBlank()) {
+            return Result.failure(IllegalStateException("카카오 로그인을 사용할 수 없습니다. 이메일 또는 게스트로 시작해주세요."))
+        }
+        val result = runCatching {
+            suspendCancellableCoroutine<Result<UserProfile>> { continuation ->
+                fun resumeOnce(result: Result<UserProfile>) {
+                    if (continuation.isActive) {
+                        continuation.resume(result)
                     }
                 }
-            }
 
-            if (UserApiClient.instance.isKakaoTalkLoginAvailable(context)) {
-                UserApiClient.instance.loginWithKakaoTalk(context) { _, error ->
-                    if (error != null) {
-                        UserApiClient.instance.loginWithKakaoAccount(context) { _, accountError ->
-                            callback(accountError)
+                val callback: (Throwable?) -> Unit = { loginError ->
+                    if (loginError != null) {
+                        resumeOnce(Result.failure(loginError))
+                    } else {
+                        runCatching {
+                            UserApiClient.instance.me { kakaoUser, userError ->
+                                if (userError != null || kakaoUser == null) {
+                                    resumeOnce(Result.failure(userError ?: IllegalStateException("카카오 사용자 정보가 비어 있습니다.")))
+                                } else {
+                                    val user = UserProfile(
+                                        userId = "kakao-${kakaoUser.id}",
+                                        email = kakaoUser.kakaoAccount?.email.orEmpty(),
+                                        displayName = kakaoUser.kakaoAccount?.profile?.nickname ?: "OliveMe User",
+                                        profileImageUrl = kakaoUser.kakaoAccount?.profile?.thumbnailImageUrl,
+                                        loginProvider = "kakao",
+                                    )
+                                    resumeOnce(Result.success(user))
+                                }
+                            }
+                        }.onFailure { resumeOnce(Result.failure(it)) }
+                    }
+                }
+
+                runCatching {
+                    if (UserApiClient.instance.isKakaoTalkLoginAvailable(context)) {
+                        UserApiClient.instance.loginWithKakaoTalk(context) { _, error ->
+                            if (error != null) {
+                                runCatching {
+                                    UserApiClient.instance.loginWithKakaoAccount(context) { _, accountError ->
+                                        callback(accountError)
+                                    }
+                                }.onFailure { resumeOnce(Result.failure(it)) }
+                            } else {
+                                callback(null)
+                            }
                         }
                     } else {
-                        callback(null)
+                        UserApiClient.instance.loginWithKakaoAccount(context) { _, error ->
+                            callback(error)
+                        }
                     }
-                }
-            } else {
-                UserApiClient.instance.loginWithKakaoAccount(context) { _, error ->
-                    callback(error)
-                }
+                }.onFailure { resumeOnce(Result.failure(it)) }
             }
-        }
+        }.getOrElse { Result.failure(it) }
         if (result.isSuccess) {
             val user = result.getOrThrow()
             persistUser(user)

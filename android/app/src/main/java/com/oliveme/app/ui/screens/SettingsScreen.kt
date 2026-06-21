@@ -3,6 +3,7 @@ package com.oliveme.app.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -100,7 +101,10 @@ fun SettingsScreen(
             }
             SettingsSection("앱 테마") {
                 Text("진단 결과와 별개로 앱 분위기를 선택할 수 있습니다.", color = OliveTextDim, fontSize = 12.sp, lineHeight = 18.sp)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
                     state.availableThemes.forEach { theme ->
                         ThemeChip(
                             label = when (theme) {

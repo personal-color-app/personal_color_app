@@ -101,5 +101,48 @@ class GeminiParserTest {
         assertEquals("winter-deep", result.subtype)
         assertEquals(100, result.confidence)
         assertEquals(95, result.matchScore)
+        assertEquals(6, result.palette.size)
+        assertTrue(result.makeup.keys.containsAll(listOf("립", "아이", "베이스", "치크")))
+        assertTrue(result.makeup.values.flatten().none { it.title == "추천 아이템" })
+    }
+
+    @Test
+    fun replacesGenericMakeupItemsAndExpandsPalette() {
+        val result = service.parseForTest(
+            """
+            {
+              "toneNameKo": "겨울 딥",
+              "englishLabel": "WINTER · DEEP · COOL",
+              "season": "winter",
+              "subtype": "winter-deep",
+              "temperature": "cool",
+              "value": "deep",
+              "chroma": "clear",
+              "contrast": "high",
+              "matchScore": 92,
+              "confidence": 88,
+              "summary": "깊은 쿨 컬러가 안정적입니다.",
+              "signature": "딥 버건디가 잘 맞습니다.",
+              "palette": [{"hex": "#5B1A1F", "name": "딥 버건디", "role": "best"}],
+              "avoidColors": [],
+              "outfit": [],
+              "makeup": {
+                "립": [{"category": "립", "title": "추천 아이템", "subtitle": "", "colorHex": ""}],
+                "아이": [{"category": "아이", "title": "", "subtitle": "", "colorHex": ""}],
+                "베이스": [{"category": "베이스", "title": "제품", "subtitle": "", "colorHex": "#722F37"}],
+                "치크": [{"category": "치크", "title": "메이크업", "subtitle": "", "colorHex": ""}]
+              },
+              "features": [],
+              "productKeywords": [],
+              "qualityWarnings": []
+            }
+            """.trimIndent(),
+        )
+
+        val makeup = result.makeup.values.flatten()
+        assertEquals(6, result.palette.size)
+        assertEquals(4, makeup.size)
+        assertTrue(makeup.none { it.title == "추천 아이템" || it.title == "제품" || it.title == "메이크업" })
+        assertEquals(4, makeup.map { it.colorHex }.distinct().size)
     }
 }

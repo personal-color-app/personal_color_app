@@ -295,8 +295,15 @@ private fun Analyzing(step: Int) {
                 .background(softBeautyGradient(), RoundedCornerShape(24.dp)),
             contentAlignment = Alignment.Center,
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OliveLogo(compact = true, variant = OliveLogoVariant.Mark)
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(22.dp)) {
+                Text(
+                    "OliveMe",
+                    color = Color(0xFF8B6B6F),
+                    fontFamily = FontFamily.Serif,
+                    fontSize = 30.sp,
+                    fontWeight = FontWeight.Medium,
+                )
+                Text("AI 컬러 분석 중", color = OliveTextMid, fontSize = 13.sp)
                 LinearProgressIndicator(
                     progress = { (step.coerceIn(1, 4)) / 4f },
                     color = OlivePrimaryDeep,

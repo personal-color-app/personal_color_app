@@ -2,6 +2,7 @@ package com.oliveme.app.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,7 +11,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -36,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.oliveme.app.MainUiState
@@ -73,8 +77,19 @@ fun MainScreen(
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
-            ModalDrawerSheet(drawerContainerColor = OliveBg) {
-                Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            ModalDrawerSheet(
+                drawerContainerColor = OliveBg,
+                modifier = Modifier
+                    .fillMaxWidth(0.9f)
+                    .widthIn(max = 340.dp),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(start = 24.dp, top = 22.dp, end = 24.dp, bottom = 34.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
                     OliveLogo(compact = true, variant = OliveLogoVariant.Inline)
                     Box(
                         Modifier
@@ -85,8 +100,11 @@ fun MainScreen(
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(user.displayName, color = OliveText, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                             Text(user.email, color = OliveTextMid, fontSize = 12.sp)
-                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Pill(state.recent?.personalColorType ?: "진단 준비", selected = true)
+                            Row(
+                                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                Pill(state.recent?.personalColorType?.compactToneName() ?: "진단 준비", selected = true)
                                 Pill("진단 ${state.diagnosisCount}회")
                             }
                         }
@@ -96,6 +114,7 @@ fun MainScreen(
                             item,
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .heightIn(min = 44.dp)
                                 .clickable {
                                     scope.launch { drawerState.close() }
                                     when (item) {
@@ -105,16 +124,26 @@ fun MainScreen(
                                         "설정" -> onSettings()
                                     }
                                 }
-                                .padding(vertical = 9.dp),
+                                .padding(vertical = 8.dp),
                             color = OliveText,
+                            fontSize = 17.sp,
                             fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                     Text(
                         "로그아웃",
-                        modifier = Modifier.clickable(onClick = onLogout).padding(vertical = 8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 44.dp)
+                            .clickable(onClick = onLogout)
+                            .padding(vertical = 8.dp),
                         color = OlivePrimaryDeep,
+                        fontSize = 17.sp,
                         fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
@@ -187,7 +216,16 @@ fun MainScreen(
                             )
                             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Text("최근 리포트", color = OliveTextDim, fontSize = 11.sp)
-                                Text(recent.personalColorType, color = OliveText, fontSize = 20.sp, fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold)
+                                Text(
+                                    recent.personalColorType.compactToneName(),
+                                    color = OliveText,
+                                    fontSize = 20.sp,
+                                    lineHeight = 25.sp,
+                                    fontFamily = FontFamily.Serif,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
                                 Text(recent.description, color = OliveTextMid, fontSize = 12.sp, lineHeight = 17.sp)
                                 Text(recent.englishLabel, color = OlivePrimaryDeep, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
@@ -195,7 +233,10 @@ fun MainScreen(
                     }
                 }
                 Text("오늘의 컬러 스토리", color = OliveText, fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, fontSize = 19.sp)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
                     state.stories.take(3).forEach { story -> Pill(story.title) }
                 }
                 LegacyJetpackEvidence()
@@ -211,6 +252,9 @@ fun MainScreen(
         }
     }
 }
+
+private fun String.compactToneName(): String =
+    substringBefore(" (").trim().ifBlank { this }
 
 @Composable
 private fun PermissionOnboardingCard(

@@ -2,7 +2,6 @@ package com.oliveme.app.data.repository
 
 import com.oliveme.app.data.local.ColorStoryEntity
 import com.oliveme.app.data.local.DiagnosisHistoryEntity
-import com.oliveme.app.data.local.FavoriteStoreEntity
 import com.oliveme.app.data.local.OliveMeDao
 import com.oliveme.app.data.local.ProductRecommendationEntity
 import com.oliveme.app.data.local.RecommendedColorEntity
@@ -18,9 +17,9 @@ class DemoSeedRepository(
         if (dao.getDiagnosisHistory(userId).isEmpty()) {
             seedDiagnosisHistory(userId)
         }
-        if (dao.getFavoriteStores(userId).isEmpty()) {
-            seedFavorites(userId)
-        }
+        // Old demo builds inserted 부산대 seed stores as favorites, which looked like
+        // user-saved real stores. Keep demo history, but make saved stores user-driven.
+        dao.deleteLegacySeedFavoriteStores(userId)
     }
 
     suspend fun ensureColorStories() {
@@ -115,23 +114,4 @@ class DemoSeedRepository(
         }
     }
 
-    private suspend fun seedFavorites(userId: String) {
-        val now = System.currentTimeMillis()
-        seedContentRepository.stores().take(2).forEachIndexed { index, store ->
-            dao.upsertFavoriteStore(
-                FavoriteStoreEntity(
-                    id = store.id,
-                    userId = userId,
-                    name = store.name,
-                    address = store.address,
-                    distanceLabel = store.distanceLabel,
-                    lat = store.lat,
-                    lng = store.lng,
-                    phone = store.phone,
-                    placeUrl = store.placeUrl,
-                    createdAt = now + index,
-                ),
-            )
-        }
-    }
 }

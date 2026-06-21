@@ -4,6 +4,13 @@ import com.google.gson.annotations.SerializedName
 
 data class KakaoKeywordSearchResponse(
     val documents: List<KakaoPlaceDocument> = emptyList(),
+    val meta: KakaoSearchMeta = KakaoSearchMeta(),
+)
+
+data class KakaoSearchMeta(
+    @SerializedName("total_count") val totalCount: Int = 0,
+    @SerializedName("pageable_count") val pageableCount: Int = 0,
+    @SerializedName("is_end") val isEnd: Boolean = true,
 )
 
 data class KakaoPlaceDocument(

@@ -85,6 +85,9 @@ interface OliveMeDao {
     @Query("DELETE FROM favorite_stores WHERE userId = :userId")
     suspend fun deleteFavoriteStores(userId: String)
 
+    @Query("DELETE FROM favorite_stores WHERE userId = :userId AND id LIKE 'pnu-%'")
+    suspend fun deleteLegacySeedFavoriteStores(userId: String)
+
     @Query("SELECT * FROM favorite_stores WHERE userId = :userId ORDER BY createdAt DESC")
     suspend fun getFavoriteStores(userId: String): List<FavoriteStoreEntity>
 

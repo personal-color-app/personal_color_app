@@ -3,6 +3,7 @@ package com.oliveme.app.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,10 +12,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -42,11 +46,13 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.oliveme.app.MyPageUiState
 import com.oliveme.app.data.local.DiagnosisHistoryEntity
 import com.oliveme.app.data.repository.PersonalColorResult
+import com.oliveme.app.data.repository.ProductRecommendation
 import com.oliveme.app.data.repository.UserProfile
 import com.oliveme.app.ui.theme.OliveBg
 import com.oliveme.app.ui.theme.OliveCard
@@ -98,8 +104,11 @@ fun MyPageScreen(
             StatCell(if (latest.isFallback) "가이드" else "${latest.matchScore}%", "분석 기준", Modifier.weight(1f))
             StatCell("${state.favorites.size}", "저장 매장", Modifier.weight(1f))
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("리포트", "이력", "매장").forEachIndexed { index, label ->
+        Row(
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            listOf("리포트", "이력", "저장 매장").forEachIndexed { index, label ->
                 Pill(label, selected = tab == index) { tab = index }
             }
         }
@@ -113,6 +122,7 @@ fun MyPageScreen(
 
 @Composable
 private fun ProfileHeader(user: UserProfile, state: MyPageUiState) {
+    val displayType = state.latestResult.type.compactToneName()
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -131,12 +141,52 @@ private fun ProfileHeader(user: UserProfile, state: MyPageUiState) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(user.displayName, color = OliveText, fontSize = 17.sp, fontWeight = FontWeight.Bold)
             Text(user.email, color = OliveTextMid, fontSize = 11.sp)
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Pill(state.latestResult.type, selected = true)
-                Pill("이력 ${state.history.size}")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                ProfileToneChip(displayType, Modifier.weight(1f))
+                ProfileHistoryChip(state.history.size)
             }
         }
     }
+}
+
+@Composable
+private fun ProfileToneChip(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text = text,
+        modifier = modifier
+            .heightIn(min = 40.dp)
+            .background(OlivePrimary, RoundedCornerShape(50))
+            .border(1.dp, OlivePrimaryDeep, RoundedCornerShape(50))
+            .padding(horizontal = 13.dp, vertical = 9.dp),
+        color = Color.White,
+        fontSize = 12.sp,
+        fontWeight = FontWeight.Bold,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        softWrap = false,
+    )
+}
+
+@Composable
+private fun ProfileHistoryChip(count: Int) {
+    Text(
+        text = "이력 $count",
+        modifier = Modifier
+            .widthIn(min = 74.dp)
+            .heightIn(min = 40.dp)
+            .background(OlivePrimarySoft, RoundedCornerShape(50))
+            .padding(horizontal = 13.dp, vertical = 9.dp),
+        color = OlivePrimaryDeep,
+        fontSize = 12.sp,
+        fontWeight = FontWeight.Bold,
+        maxLines = 1,
+        overflow = TextOverflow.Clip,
+        softWrap = false,
+    )
 }
 
 @Composable
@@ -214,7 +264,16 @@ private fun ReportTab(
                 }
                 Spacer(Modifier.height(16.dp))
                 Text(latest.englishLabel, color = Color.White.copy(alpha = 0.78f), fontSize = 10.sp, letterSpacing = 2.sp)
-                Text(latest.type, color = Color.White, fontFamily = FontFamily.Serif, fontSize = 38.sp, fontWeight = FontWeight.Medium)
+                Text(
+                    latest.type.compactToneName(),
+                    color = Color.White,
+                    fontFamily = FontFamily.Serif,
+                    fontSize = 30.sp,
+                    lineHeight = 36.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
                 Row(Modifier.fillMaxWidth().height(7.dp)) {
                     latest.palette.forEach { color ->
                         Box(Modifier.weight(1f).background(safeComposeColor(color.hex)))
@@ -245,11 +304,15 @@ private fun ReportTab(
             }
         }
         item {
+            val makeupPreview = latest.makeupPreviewItems()
             OliveCardBlock {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("추천 메이크업", color = OliveText, fontWeight = FontWeight.Bold)
+                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text("추천 메이크업", color = OliveText, fontWeight = FontWeight.Bold)
+                        Text("로컬 컬러 가이드 기준으로 정리했어요.", color = OliveTextDim, fontSize = 11.sp)
+                    }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        latest.makeup.values.flatten().take(4).forEach { item ->
+                        makeupPreview.forEach { item ->
                             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                                 Box(
                                     Modifier
@@ -268,6 +331,87 @@ private fun ReportTab(
         }
     }
 }
+
+private fun String.compactToneName(): String =
+    substringBefore(" (").trim().ifBlank { this }
+
+private fun PersonalColorResult.makeupPreviewItems(): List<ProductRecommendation> {
+    val all = makeup.values.flatten()
+    return MakeupPreviewCategories.mapIndexed { index, category ->
+        val candidate = all.firstOrNull { it.matchesMakeupCategory(category) }
+        val fallback = fallbackMakeupPreview(category, subtype, season, index)
+        if (candidate == null) {
+            fallback
+        } else {
+            candidate.copy(
+                category = category,
+                title = candidate.title.takeUnless { it.isGenericMakeupTitle() } ?: fallback.title,
+                subtitle = candidate.subtitle.ifBlank { fallback.subtitle },
+                colorHex = candidate.colorHex.takeUnless { it.isDefaultGenericMakeupHex() && candidate.title.isGenericMakeupTitle() } ?: fallback.colorHex,
+            )
+        }
+    }
+}
+
+private fun ProductRecommendation.matchesMakeupCategory(category: String): Boolean {
+    val text = "${this.category} $title".lowercase()
+    return when (category) {
+        "립" -> text.contains("립") || text.contains("틴트") || text.contains("lip")
+        "아이" -> text.contains("아이") || text.contains("섀도") || text.contains("섀도우") || text.contains("eye") || text.contains("shadow")
+        "베이스" -> text.contains("베이스") || text.contains("파운데이션") || text.contains("쿠션") || text.contains("base") || text.contains("foundation")
+        "치크" -> text.contains("치크") || text.contains("블러셔") || text.contains("cheek") || text.contains("blush")
+        else -> false
+    }
+}
+
+private fun fallbackMakeupPreview(category: String, subtype: String, season: String, index: Int): ProductRecommendation {
+    val (title, hex) = when (category) {
+        "립" -> when {
+            subtype.startsWith("spring") -> "피치 코랄 립" to "#FF8F70"
+            subtype.startsWith("summer") -> "소프트 로즈 립" to "#D7A7B5"
+            subtype.startsWith("autumn") -> "브릭 로즈 립" to "#A45A2A"
+            subtype == "winter-deep" -> "딥 베리 립" to "#5B1A1F"
+            else -> "쿨 로즈 립" to "#B85C7B"
+        }
+        "아이" -> when {
+            subtype.startsWith("spring") -> "샴페인 섀도" to "#F6D365"
+            subtype.startsWith("summer") -> "모브 섀도" to "#9D8497"
+            subtype.startsWith("autumn") -> "카멜 섀도" to "#C18A4A"
+            subtype == "winter-deep" -> "차콜 섀도" to "#111827"
+            else -> "그레이 섀도" to "#6B7280"
+        }
+        "베이스" -> when {
+            subtype.startsWith("spring") -> "아이보리 베이스" to "#FFF1C7"
+            subtype.startsWith("summer") -> "핑크 베이스" to "#F3D4DE"
+            subtype.startsWith("autumn") -> "웜 베이스" to "#E9C8A8"
+            else -> "핑크 베이스" to "#F2C2D1"
+        }
+        else -> when {
+            subtype.startsWith("spring") -> "코랄 치크" to "#FFB7A8"
+            subtype.startsWith("summer") -> "쿨 핑크 치크" to "#D7A7B5"
+            subtype.startsWith("autumn") -> "베이지 치크" to "#D8B58A"
+            else -> "쿨 로즈 치크" to "#B85C7B"
+        }
+    }
+    return ProductRecommendation(
+        category = category,
+        title = title,
+        subtitle = if (season.isBlank()) "퍼스널 컬러 기준 추천" else "퍼스널 컬러 기준 추천",
+        colorHex = hex,
+    )
+}
+
+private fun String.isGenericMakeupTitle(): Boolean {
+    val text = trim()
+    return text.isBlank() ||
+        text in setOf("추천", "추천 아이템", "아이템", "제품", "상품", "메이크업", "컬러") ||
+        text.endsWith("추천 아이템")
+}
+
+private fun String.isDefaultGenericMakeupHex(): Boolean =
+    equals("#722F37", ignoreCase = true) || isBlank()
+
+private val MakeupPreviewCategories = listOf("립", "아이", "베이스", "치크")
 
 @Composable
 private fun HistoryTab(
@@ -342,13 +486,18 @@ private fun HistoryTab(
 @Composable
 private fun StoresTab(state: MyPageUiState, onOpen: () -> Unit, onMap: () -> Unit, modifier: Modifier = Modifier) {
     LazyColumn(modifier = modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("저장 매장", color = OliveText, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text("즐겨찾기에 담은 매장만 표시됩니다.", color = OliveTextDim, fontSize = 12.sp)
+            }
+        }
         if (state.favorites.isEmpty()) {
             item {
                 OliveCardBlock {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text("저장한 매장이 아직 없습니다.", color = OliveText, fontWeight = FontWeight.Bold)
                         Text("근처 매장에서 마음에 드는 매장을 즐겨찾기에 담아보세요.", color = OliveTextDim)
-                        OliveButton("근처 매장 찾기", onClick = onMap)
                     }
                 }
             }
@@ -372,5 +521,9 @@ private fun StoresTab(state: MyPageUiState, onOpen: () -> Unit, onMap: () -> Uni
                 }
             }
         }
+        item {
+            OliveButton("지도로 이동", onClick = onMap)
+        }
+        item { Spacer(Modifier.height(12.dp)) }
     }
 }

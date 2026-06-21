@@ -9,6 +9,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -32,7 +33,6 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -55,71 +55,77 @@ fun Digit2FaScreen(
 ) {
     val strokes = remember { mutableStateListOf<MutableList<Offset>>() }
     var canvasSize by remember { mutableStateOf(IntSize.Zero) }
-    Column(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .background(OliveBg)
             .padding(horizontal = 22.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        AppTopBar(
-            "2차 인증",
-            onBack = onBack,
-            navigationIcon = Icons.Filled.ArrowBack,
-            navigationContentDescription = "뒤로",
-        )
-        OliveCardBlock {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("등록 숫자 $expectedDigit 를 손으로 그려주세요.", color = OliveTextMid, fontSize = 18.sp)
-                Text("이 계정은 숫자 1이 등록되어 있습니다.", color = OliveTextDim)
-            }
-        }
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(320.dp)
-                .background(OliveBgSoft, RoundedCornerShape(24.dp))
-                .onSizeChanged { canvasSize = it }
-                .pointerInput(Unit) {
-                    detectDragGestures(
-                        onDragStart = { offset -> strokes.add(mutableListOf(offset)) },
-                        onDrag = { change, _ ->
-                            strokes.lastOrNull()?.add(change.position)
-                            change.consume()
-                        },
-                    )
-                },
+        val compact = maxHeight < 700.dp
+        val gap = if (compact) 10.dp else 16.dp
+        val canvasHeight = if (compact) 240.dp else 320.dp
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(gap),
         ) {
-            val strokeColor = OlivePrimaryDeep
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                strokes.forEach { stroke ->
-                    if (stroke.size > 1) {
-                        val path = Path().apply {
-                            moveTo(stroke.first().x, stroke.first().y)
-                            stroke.drop(1).forEach { lineTo(it.x, it.y) }
-                        }
-                        drawPath(
-                            path = path,
-                            color = strokeColor,
-                            style = Stroke(width = 18f, cap = StrokeCap.Round),
+            AppTopBar(
+                "2차 인증",
+                onBack = onBack,
+                navigationIcon = Icons.Filled.ArrowBack,
+                navigationContentDescription = "뒤로",
+            )
+            OliveCardBlock {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("등록 숫자 $expectedDigit 를 손으로 그려주세요.", color = OliveTextMid, fontSize = 18.sp)
+                    Text("이 계정은 숫자 1이 등록되어 있습니다.", color = OliveTextDim)
+                }
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(canvasHeight)
+                    .background(OliveBgSoft, RoundedCornerShape(24.dp))
+                    .onSizeChanged { canvasSize = it }
+                    .pointerInput(Unit) {
+                        detectDragGestures(
+                            onDragStart = { offset -> strokes.add(mutableListOf(offset.clampedTo(canvasSize))) },
+                            onDrag = { change, _ ->
+                                strokes.lastOrNull()?.add(change.position.clampedTo(canvasSize))
+                                change.consume()
+                            },
                         )
+                    },
+            ) {
+                val strokeColor = OlivePrimaryDeep
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    strokes.forEach { stroke ->
+                        if (stroke.size > 1) {
+                            val path = Path().apply {
+                                moveTo(stroke.first().x, stroke.first().y)
+                                stroke.drop(1).forEach { lineTo(it.x, it.y) }
+                            }
+                            drawPath(
+                                path = path,
+                                color = strokeColor,
+                                style = Stroke(width = 18f, cap = StrokeCap.Round),
+                            )
+                        }
                     }
                 }
             }
+            when (state) {
+                Digit2FaUiState.Checking -> Text("숫자를 판정하는 중...", color = OliveTextDim)
+                is Digit2FaUiState.Failed -> Text("${state.message} (시도 ${state.attempts})", color = OlivePrimaryDeep, fontSize = 18.sp, lineHeight = 26.sp)
+                is Digit2FaUiState.Passed -> Text("인증 성공: ${state.prediction}, ${"%.0f".format(state.confidence * 100)}%", color = OlivePrimaryDeep)
+                Digit2FaUiState.Ready -> Text("캔버스 안에 숫자를 그려주세요.", color = OliveTextDim)
+            }
+            OliveButton("확인") { onSubmit(strokes.toBitmap(canvasSize)) }
+            SecondaryButton("다시 그리기") { strokes.clear() }
+            if (showDemoFallback) {
+                SecondaryButton("인증 없이 계속하기") { onPassedByDemoFallback() }
+            }
+            Spacer(Modifier.height(4.dp))
         }
-        when (state) {
-            Digit2FaUiState.Checking -> Text("숫자를 판정하는 중...", color = OliveTextDim)
-            is Digit2FaUiState.Failed -> Text("${state.message} (시도 ${state.attempts})", color = OlivePrimaryDeep, fontSize = 18.sp, lineHeight = 26.sp)
-            is Digit2FaUiState.Passed -> Text("인증 성공: ${state.prediction}, ${"%.0f".format(state.confidence * 100)}%", color = OlivePrimaryDeep)
-            Digit2FaUiState.Ready -> Text("숫자를 크게, 한 획으로 그리면 더 잘 인식됩니다.", color = OliveTextDim)
-        }
-        OliveButton("확인") { onSubmit(strokes.toBitmap(canvasSize)) }
-        SecondaryButton("다시 그리기") { strokes.clear() }
-        if (showDemoFallback) {
-            SecondaryButton("인증 없이 계속하기") { onPassedByDemoFallback() }
-        }
-        Text("오류가 나도 앱은 종료되지 않고 다시 시도할 수 있습니다.", color = OliveText, fontWeight = FontWeight.Medium)
-        Spacer(Modifier.height(4.dp))
     }
 }
 
@@ -136,7 +142,19 @@ private fun List<List<Offset>>.toBitmap(size: IntSize): Bitmap {
         style = Paint.Style.STROKE
     }
     forEach { stroke ->
-        stroke.zipWithNext { a, b -> canvas.drawLine(a.x, a.y, b.x, b.y, paint) }
+        stroke.zipWithNext { a, b ->
+            val start = a.clampedTo(size)
+            val end = b.clampedTo(size)
+            canvas.drawLine(start.x, start.y, end.x, end.y, paint)
+        }
     }
     return bitmap
+}
+
+private fun Offset.clampedTo(size: IntSize): Offset {
+    if (size.width <= 0 || size.height <= 0) return this
+    return Offset(
+        x = x.coerceIn(0f, (size.width - 1).toFloat()),
+        y = y.coerceIn(0f, (size.height - 1).toFloat()),
+    )
 }

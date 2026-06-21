@@ -1,6 +1,9 @@
 package com.oliveme.app
 
 import android.Manifest
+import android.app.AlertDialog
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.location.Location
@@ -10,6 +13,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -33,11 +37,16 @@ class MapActivity : ComponentActivity() {
     private val fusedLocationClient by lazy { LocationServices.getFusedLocationProviderClient(this) }
     private val mainHandler = Handler(Looper.getMainLooper())
     private var locationRequestSerial = 0
+    private var pendingLocationSettingsCheck = false
     private val locationPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
         if (grants.values.any { it }) {
             loadWithCurrentLocation(showToast = true)
         } else {
-            Toast.makeText(this, "위치 권한 없이 기준 지역 매장을 보여드릴게요.", Toast.LENGTH_SHORT).show()
+            if (canAskLocationPermissionAgain()) {
+                Toast.makeText(this, "위치 권한 없이 기준 지역 매장을 보여드릴게요.", Toast.LENGTH_SHORT).show()
+            } else {
+                showLocationPermissionSettingsDialog()
+            }
             loadFallbackStores()
         }
     }
@@ -47,6 +56,7 @@ class MapActivity : ComponentActivity() {
         AppGraph.init(this)
         val user = currentUser()
         userId = user.userId
+        viewModel.beginLocationLookup()
         setContent {
             val themeName by AppGraph.themePreferenceRepository.theme.collectAsState()
             OliveMeTheme(themeName = themeName) {
@@ -59,50 +69,138 @@ class MapActivity : ComponentActivity() {
                             Toast.makeText(this, "현재 위치를 다시 확인합니다.", Toast.LENGTH_SHORT).show()
                             loadWithCurrentLocation(showToast = false)
                         } else {
-                            Toast.makeText(this, "주변 매장을 찾기 위해 위치 권한을 확인합니다.", Toast.LENGTH_SHORT).show()
-                            requestLocationPermission()
+                            handleLocateWithoutPermission()
                         }
                     },
                     onFilter = viewModel::setFilter,
+                    onViewportChanged = viewModel::updateViewport,
+                    onRefreshRegion = { viewModel.refreshVisibleRegion(user.userId) },
                     onSelect = viewModel::select,
                     onFavorite = { store ->
                         viewModel.toggleFavorite(user.userId, store)
                         Toast.makeText(this, "즐겨찾기 상태를 변경했습니다.", Toast.LENGTH_SHORT).show()
                     },
-                    onDirections = ::openStoreInGoogleMaps,
+                    onDirections = ::openStoreInMap,
                 )
             }
         }
         ensureLocationThenLoad()
     }
 
-    private fun openStoreInGoogleMaps(store: OliveStore) {
-        val query = listOf(store.name, store.address)
-            .filter { it.isNotBlank() }
-            .joinToString(" ")
-            .ifBlank { store.name }
-        val mapsUri = Uri.parse("https://www.google.com/maps/search/?api=1&query=${Uri.encode(query)}")
-        val googleMapsIntent = Intent(Intent.ACTION_VIEW, mapsUri).setPackage("com.google.android.apps.maps")
-        runCatching {
-            startActivity(googleMapsIntent)
-        }.recoverCatching {
-            startActivity(Intent(Intent.ACTION_VIEW, mapsUri))
-        }.onFailure {
-            Toast.makeText(this, "지도 앱을 찾지 못했습니다.", Toast.LENGTH_SHORT).show()
+    override fun onResume() {
+        super.onResume()
+        if (pendingLocationSettingsCheck) {
+            pendingLocationSettingsCheck = false
+            if (hasLocationPermission()) {
+                Toast.makeText(this, "위치 권한이 허용되었습니다. 현재 위치를 확인합니다.", Toast.LENGTH_SHORT).show()
+                loadWithCurrentLocation(showToast = true)
+            } else {
+                loadFallbackStores()
+            }
         }
     }
 
+    private fun openStoreInMap(store: OliveStore) {
+        val label = listOf(store.name, store.address)
+            .filter { it.isNotBlank() }
+            .joinToString(" ")
+            .ifBlank { store.name }
+        val hasCoordinate = store.lat?.let { java.lang.Double.isFinite(it) } == true &&
+            store.lng?.let { java.lang.Double.isFinite(it) } == true
+        val coordinateQuery = if (hasCoordinate) "${store.lat},${store.lng}" else null
+        val webQuery = coordinateQuery ?: label
+        val webUri = Uri.parse("https://www.google.com/maps/search/?api=1&query=${Uri.encode(webQuery)}")
+        val appUri = if (coordinateQuery != null) {
+            Uri.parse("geo:${store.lat},${store.lng}?q=${Uri.encode("${store.lat},${store.lng}($label)")}")
+        } else {
+            webUri
+        }
+        val attempts = buildList {
+            add(Intent(Intent.ACTION_VIEW, appUri).setPackage(GoogleMapsPackage))
+            add(Intent(Intent.ACTION_VIEW, webUri))
+            BrowserPackages.forEach { packageName ->
+                add(Intent(Intent.ACTION_VIEW, webUri).setPackage(packageName))
+            }
+        }
+        if (attempts.any(::tryOpenMapIntent)) return
+        runCatching {
+            val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+            clipboard.setPrimaryClip(ClipData.newPlainText("OliveMe 지도 링크", webUri.toString()))
+        }
+        Toast.makeText(this, "브라우저를 열 수 없어 지도 링크를 복사했습니다.", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun tryOpenMapIntent(intent: Intent): Boolean =
+        runCatching {
+            startActivity(intent)
+            true
+        }.onFailure { error ->
+            Log.w(Tag, "Map intent failed package=${intent.`package` ?: "default"}", error)
+        }.getOrDefault(false)
+
     private fun ensureLocationThenLoad() {
+        viewModel.beginLocationLookup()
         if (hasLocationPermission()) {
             loadWithCurrentLocation(showToast = false)
         } else {
-            requestLocationPermission()
             loadFallbackStores()
         }
     }
 
+    private fun handleLocateWithoutPermission() {
+        when {
+            canAskLocationPermissionAgain() -> {
+                Toast.makeText(this, "주변 매장을 찾기 위해 위치 권한을 요청합니다.", Toast.LENGTH_SHORT).show()
+                requestLocationPermission()
+            }
+            else -> showLocationPermissionSettingsDialog()
+        }
+    }
+
     private fun requestLocationPermission() {
+        viewModel.beginLocationLookup()
+        markLocationPermissionRequested()
         locationPermissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+    }
+
+    private fun canAskLocationPermissionAgain(): Boolean {
+        if (!hasAskedLocationPermission()) return true
+        return shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_FINE_LOCATION) ||
+            shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_COARSE_LOCATION)
+    }
+
+    private fun showLocationPermissionSettingsDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("위치 권한이 필요합니다")
+            .setMessage("현재 위치 기준 매장을 보려면 앱 설정에서 위치 권한을 허용해주세요. 권한을 허용하지 않아도 부산대 기준 매장은 계속 볼 수 있습니다.")
+            .setPositiveButton("설정 열기") { _, _ -> openAppPermissionSettings() }
+            .setNegativeButton("나중에", null)
+            .show()
+    }
+
+    private fun openAppPermissionSettings() {
+        pendingLocationSettingsCheck = true
+        runCatching {
+            startActivity(
+                Intent(
+                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    Uri.fromParts("package", packageName, null),
+                ),
+            )
+        }.onFailure {
+            pendingLocationSettingsCheck = false
+            Toast.makeText(this, "설정 화면을 열 수 없습니다.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun hasAskedLocationPermission(): Boolean =
+        getSharedPreferences(PermissionsPrefs, MODE_PRIVATE).getBoolean(LocationPermissionRequestedKey, false)
+
+    private fun markLocationPermissionRequested() {
+        getSharedPreferences(PermissionsPrefs, MODE_PRIVATE)
+            .edit()
+            .putBoolean(LocationPermissionRequestedKey, true)
+            .apply()
     }
 
     private fun loadFallbackStores() {
@@ -110,9 +208,14 @@ class MapActivity : ComponentActivity() {
     }
 
     private fun loadWithCurrentLocation(showToast: Boolean) {
+        viewModel.beginLocationLookup()
         if (!hasLocationPermission()) {
             loadFallbackStores()
             return
+        }
+        bestKnownPlatformLocation()?.let { location ->
+            loadStoresFor(location, showToast = false)
+            if (isRecentEnoughForFastPath(location)) return
         }
         val requestId = ++locationRequestSerial
         val tokenSource = CancellationTokenSource()
@@ -270,6 +373,11 @@ class MapActivity : ComponentActivity() {
     private fun isSupportedSearchLocation(latitude: Double, longitude: Double): Boolean =
         latitude in 33.0..39.5 && longitude in 124.0..132.5
 
+    private fun isRecentEnoughForFastPath(location: Location): Boolean {
+        if (location.time <= 0L) return false
+        return System.currentTimeMillis() - location.time <= LastKnownFastPathMaxAgeMillis
+    }
+
     private fun bestKnownPlatformLocation(): Location? {
         if (!hasLocationPermission()) return null
         return runCatching {
@@ -294,7 +402,21 @@ class MapActivity : ComponentActivity() {
 
     private companion object {
         const val Tag = "OliveMeMap"
+        const val PermissionsPrefs = "oliveme-permissions"
+        const val LocationPermissionRequestedKey = "location-permission-requested"
         const val LocationTimeoutMillis = 6_000L
         const val PlatformLocationTimeoutMillis = 5_000L
+        const val LastKnownFastPathMaxAgeMillis = 3 * 60 * 1000L
+        const val GoogleMapsPackage = "com.google.android.apps.maps"
+        val BrowserPackages = listOf(
+            "com.android.chrome",
+            "com.google.android.apps.chrome",
+            "com.sec.android.app.sbrowser",
+            "com.microsoft.emmx",
+            "org.mozilla.firefox",
+            "com.brave.browser",
+            "com.opera.browser",
+            "com.android.browser",
+        )
     }
 }
