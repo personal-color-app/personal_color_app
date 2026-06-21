@@ -2,7 +2,7 @@
 
 작성일: 2026-06-21  
 기준: `docs/TRUTH_SPEC.md`, `plan/personal_color_app_spec.md`, 실제 Android emulator QA  
-최신 QA artifact: `/tmp/oliveme-downloadmanager-qa-20260621-143414`
+최신 QA artifact: `/tmp/oliveme-downloadmanager-final-20260621-144528`
 
 이 문서는 발표/채점 때 바로 설명할 수 있도록 각 채점 항목을 기능, 구현 근거,
 스크린샷, QA 결과, 실패 방어 기준으로 다시 채점한 것이다. 점수는 과장하지 않고
@@ -14,13 +14,26 @@
 | --- | ---: | --- | --- | --- | --- | --- | --- |
 | Activity + Intent | 필수 | 만족 | Login, 2FA, Main, Diagnosis, Result, Map, MyPage, Settings 화면 전환 | `AndroidManifest.xml`, `LoginActivity`, `IntentKeys` | `img/main.png`, `img/result.png`, `img/map.png` | `ui/main-summary.txt`, `ui/result-summary.txt`, `ui/map-summary.txt` | extra 누락 시 safe user/result로 복구 |
 | Coroutine | 20 | 만족 | 로그인, 2FA, 진단, 지도, DB, 커머스 비동기 처리 | `ViewModels.kt`의 `viewModelScope`, `withContext(Dispatchers.IO)`, `suspend` DAO | `img/diagnosis-analyzing.png` | `ui/diagnosis-analyzing-summary.txt` | 실패는 state/fallback으로 전환 |
-| 다운로드/API 매니저 | 20 | 만족 | API 통신, 상품 이미지 캐시, 리포트 이미지 저장 | `Retrofit/OkHttp`, `Glide`, Android OS `DownloadManager` | `img/grading-downloadmanager-report-save-mypage.png`, `img/result-products.png` | `/tmp/oliveme-downloadmanager-qa-20260621-143414`, `backend/backend-smoke-summary.txt` | 비렌더 상품 제외, 이미지 placeholder/error 유지, 저장 실패 toast fallback |
+| 다운로드/API 매니저 | 20 | 만족 | API 통신, 상품 이미지 캐시, 리포트 이미지 저장 | `Retrofit/OkHttp`, `Glide`, Android OS `DownloadManager` | `img/grading-downloadmanager-report-save-mypage.png`, `img/grading-downloadmanager-exported-report.png`, `img/result-products.png` | `/tmp/oliveme-downloadmanager-final-20260621-144528`, `backend/backend-smoke-summary.txt` | 비렌더 상품 제외, 이미지 placeholder/error 유지, 저장 실패 toast fallback |
 | Jetpack 3개 이상 | 30 | 만족 | Compose UI, Room DB, ViewModel/Lifecycle, ActivityResult | `build.gradle.kts`, `LegacyJetpackEvidence` | `img/main.png` | `ui/main-summary.txt` | Compose state 기반 화면 복구 |
 | 외부 app 연동 | 20 | 만족 | 갤러리, 카메라, 공유 chooser, Google Maps/browser | `DiagnosisActivity`, `ResultActivity`, `MapActivity` | `img/diagnosis-source-sheet.png`, `img/result-share.png`, `img/google-maps.png` | `ui/diagnosis-source-sheet-summary.txt`, `ui/result-share.xml`, `android/google-maps.png` | 앱 없음/취소 시 toast 또는 fallback |
 | DB | 30 | 만족 | 내부 로컬 Room DB | `OliveMeDatabase`, `OliveMeDao` | `img/mypage-history.png` | `ui/mypage-history-summary.txt`, `ui/mypage-saved-stores-summary.txt` | history/favorite empty state와 삭제 flow 제공 |
 | API 3개 이상 | 60 | 만족 | Gemini, Kakao Login, Kakao Local, Naver Shopping, backend proxy, OSM/Google Maps | `ApiServices`, `ApiClient`, `backend-proxy/src/server.js` | `img/result-ai-clothes.png`, `img/map.png` | `backend/backend-commerce-smoke.json`, `ui/map-summary.txt` | API off 시 policy/seed/local guide fallback |
 | ML 모델 | 50 | 만족 | 손글씨 숫자 2차 인증 | TensorFlow Lite MNIST digit model | `img/grading-ml-tflite-2fa.png` | `ui/2fa-summary.txt` | 모델 누락/오류 시 `DigitPrediction.unavailable` |
 | 안정성 | 0-10 및 crash 0점 리스크 | 만족 | 권한/API/backend/model/image/외부 앱 실패 방어 | `runCatching`, timeout, fallback state, no secret logging | `img/result-backend-off.png` | `logs/crash-final.txt` 0 lines | backend off에서도 Result local guide 유지 |
+
+## 발표용 짧은 설명
+
+| 기준 | 설명 |
+| --- | --- |
+| Coroutine | ViewModel에서 `viewModelScope`와 `Dispatchers.IO`를 사용해 DB, API, 이미지 처리, TFLite 작업을 백그라운드로 보낸다. 그래서 진단/지도/상품/리포트 저장 중에도 UI thread를 막지 않고, 실패는 화면 상태나 toast로 복구한다. |
+| 다운로드/API 매니저 | Retrofit/OkHttp로 Gemini, Kakao, backend API를 호출하고 Glide로 Naver 상품 이미지를 다운로드/캐시한다. 추가로 Result/MyPage의 `리포트 이미지 저장`은 Android OS `DownloadManager`를 직접 호출해 PNG 리포트를 다운로드 항목에 등록하고 갤러리에도 저장한다. |
+| Jetpack | 화면은 Jetpack Compose, 데이터는 Room, 상태는 ViewModel/Lifecycle, 사진 선택은 ActivityResult API로 구현했다. 채점표에 나온 RecyclerView/Fragment/ViewPager2/DrawerLayout은 사용자 흐름과 별도로 증빙 레이어에 포함했다. |
+| 외부 앱 연동 | 갤러리 선택, 카메라 preview, 공유 chooser, Google Maps 앱, 브라우저 fallback을 실제 Intent/ActivityResult로 연결했다. 취소나 앱 없음은 crash가 아니라 toast/fallback으로 처리한다. |
+| DB | 앱 내부 Room DB에 사용자, 동의, 2FA, 진단 이력, 컬러/상품 추천, 저장 매장을 보관한다. API로 DB를 대체한 것이 아니라 로컬 DB를 직접 사용하므로 DB 항목으로 설명한다. |
+| API | Gemini 진단, Kakao Login, Kakao Local 매장, Naver Shopping backend, OSM 지도 타일, Google Maps 외부 Intent를 기능별로 분리해 사용한다. API가 실패해도 로컬 진단, seed 매장, 로컬 컬러 가이드로 이어진다. |
+| 머신러닝 | `digit_mnist.tflite`를 TensorFlow Lite Interpreter로 실행해 손글씨 숫자 2차 인증을 처리한다. 빈 캔버스나 모델 오류는 실패 상태로 보여주고 재시도하게 한다. |
+| 안정성 | 권한 거부, backend off, API timeout, 이미지 실패, 외부 앱 없음, DownloadManager 실패를 모두 no-crash fallback으로 처리한다. 최종 QA는 crash buffer 0 lines와 실제 emulator screenshot/UI tree/log로 판정한다. |
 
 ## 1. Coroutine
 
@@ -72,6 +85,8 @@ Android OS `DownloadManager`를 직접 호출한다.
   - `context.getSystemService(DownloadManager::class.java)`로 Android OS DownloadManager 사용.
   - 앱이 생성한 PNG 리포트를 `DownloadManager.addCompletedDownload(...)`로 다운로드 목록에 등록.
   - 같은 PNG를 `MediaStore.Images`의 `Pictures/OliveMe`에도 저장해 갤러리에서 확인 가능.
+  - 파일명은 `.png` 확장자를 보존하고, bitmap write 실패/0 byte 파일/MediaStore stream 실패를 모두 no-crash 실패 메시지로 흡수.
+  - 긴 리포트 문구와 색상명은 Canvas 출력에서 ellipsis/wrap 처리해 이미지 밖으로 밀리지 않게 방어.
 - `ResultActivity`, `MyPageActivity`
   - Result 하단과 MyPage 리포트 탭의 `리포트 이미지 저장` 버튼을 `ReportDownloadManager.saveReport(...)`에 연결.
   - 이미지 생성/파일 저장은 `Dispatchers.IO`에서 실행하고, 중복 탭은 `저장 중` toast로 흡수.
@@ -81,6 +96,8 @@ QA 판정:
 - backend-on smoke에서 `source=naver-shopping`, items 8, renderable 8, AI picks 3 확인.
 - Android Result 화면에서 실제 Naver 상품 썸네일과 링크 가능한 상품 카드 확인.
 - MyPage와 Result의 `리포트 이미지 저장`을 실제 emulator에서 각각 눌렀고, PNG가 `/sdcard/Pictures/OliveMe`와 MediaStore `Pictures/OliveMe/`에 생성되는 것을 확인.
+- MyPage 저장 버튼 double tap은 파일 수가 3->4로 1개만 증가해 중복 실행 방어를 확인.
+- 최신 생성 PNG를 pull해 `PNG image data, 1080 x 1600`으로 확인했고 README/`C:\Users\pjjpj\Desktop\new`에 복사.
 - 저장 시 logcat에서 MediaProvider 저장 완료와 DownloadProvider notification event를 확인했고, 두 저장 flow 모두 crash buffer 0 lines.
 - Result/MyPage 리포트 저장은 backend/API 없이 로컬 PNG를 생성하므로 API-off 상태에서도 동작 가능하다.
 

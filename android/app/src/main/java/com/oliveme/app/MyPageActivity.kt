@@ -59,8 +59,12 @@ class MyPageActivity : ComponentActivity() {
         }
         reportDownloadRunning = true
         lifecycleScope.launch {
-            val download = withContext(Dispatchers.IO) {
-                ReportDownloadManager.saveReport(applicationContext, result)
+            val download = runCatching {
+                withContext(Dispatchers.IO) {
+                    ReportDownloadManager.saveReport(applicationContext, result)
+                }
+            }.getOrElse {
+                ReportDownloadManager.Result(false, "리포트 이미지를 저장할 수 없습니다.")
             }
             reportDownloadRunning = false
             Toast.makeText(this@MyPageActivity, download.message, Toast.LENGTH_SHORT).show()

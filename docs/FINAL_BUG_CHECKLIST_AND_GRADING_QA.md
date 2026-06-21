@@ -35,7 +35,7 @@ secret values here.
 | README screenshots | README links representative final screenshots and grading evidence screenshots | pass | `README.md`, `img/grading-*.png` |
 | Desktop screenshot export | Latest screenshots copied to `C:\Users\pjjpj\Desktop\새 폴더` with descriptive names | pass | same filenames as `img/grading-*.png`; copied during `/tmp/oliveme-grading-final-20260621-125344` run |
 | Coroutine | `viewModelScope`, `withContext(Dispatchers.IO)`, `suspend` evidence plus E2E screenshot | pass | `img/diagnosis-analyzing.png`, `ui/diagnosis-analyzing-summary.txt` |
-| Download/API manager | Retrofit/OkHttp + Glide evidence plus direct Android OS `DownloadManager` report-image export | pass | `img/result-products.png`, `/tmp/oliveme-downloadmanager-qa-20260621-143414`, `ReportDownloadManager.kt` |
+| Download/API manager | Retrofit/OkHttp + Glide evidence plus direct Android OS `DownloadManager` report-image export | pass | `img/result-products.png`, `img/grading-downloadmanager-exported-report.png`, `/tmp/oliveme-downloadmanager-final-20260621-144528`, `ReportDownloadManager.kt` |
 | Jetpack | Compose, Room, ViewModel/Lifecycle, ActivityResult, LegacyJetpackEvidence | pass | `img/main.png`, source audit |
 | External app | Gallery/camera entry, share chooser, Google Maps external path | pass | `img/diagnosis-source-sheet.png`, `img/result-share.png`, `img/google-maps.png` |
 | Room DB | Local Room DB history and saved stores | pass | `img/mypage-history.png`, `img/mypage-saved-stores.png` |
@@ -165,7 +165,7 @@ All taps must be derived from UI tree bounds where possible.
 | --- | --- | --- | --- |
 | Activity 3+ and Intent data | Required, -50 risk if missing | Login, Digit2Fa, Main, Diagnosis, Result, Map, MyPage, Settings and `IntentKeys` | pass by source/QA evidence |
 | Coroutine | 20 | `viewModelScope`, `withContext(Dispatchers.IO)`, suspend repository/DAO calls | pass by source audit |
-| Download/API manager | 20 | Retrofit/OkHttp services and Glide thumbnails | pass by source and UI evidence |
+| Download/API manager | 20 | Retrofit/OkHttp API services, Glide product thumbnails, and direct Android OS `DownloadManager` PNG report export | pass by source, UI, MediaStore, and DownloadProvider evidence |
 | Jetpack 3+ | 30 | Room, Compose, ViewModel, ActivityResult, DrawerLayout/ViewPager2/Fragment/RecyclerView evidence | pass by source audit |
 | External app integration | 20 | Gallery, camera, share chooser, Google Maps/browser/clipboard/product URL intent | pass by source and map/Result artifact evidence |
 | DB | 30 | Room local DB. Local DB counts separately from API score. | pass by source and MyPage/history evidence |
