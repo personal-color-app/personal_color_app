@@ -8,6 +8,8 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
+import android.media.MediaScannerConnection
+import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
@@ -22,28 +24,30 @@ object ReportDownloadManager {
     data class Result(val success: Boolean, val message: String)
 
     fun saveReport(context: Context, report: PersonalColorResult): Result {
-        val fileName = safeFileName("OliveMe_${report.type}_${timestamp()}.png")
+        val fileName = reportFileName(report.type)
         val bitmap = runCatching { report.toReportBitmap() }.getOrElse {
             return Result(false, "리포트 이미지를 만들 수 없습니다.")
         }
-        val file = runCatching {
-            val dir = File(context.getExternalFilesDir(Environment.DIRECTORY_PICTURES), "OliveMe").apply { mkdirs() }
-            File(dir, fileName).apply {
-                FileOutputStream(this).use { out -> bitmap.compress(Bitmap.CompressFormat.PNG, 100, out) }
+
+        return try {
+            val file = runCatching {
+                val dir = File(context.getExternalFilesDir(Environment.DIRECTORY_PICTURES), "OliveMe").apply { mkdirs() }
+                File(dir, fileName).apply { writeBitmapToFile(bitmap, this) }
+            }.getOrElse {
+                return Result(false, "리포트 파일을 만들 수 없습니다.")
             }
-        }.getOrElse {
-            return Result(false, "리포트 파일을 만들 수 없습니다.")
-        }
 
-        val gallery = saveToGallery(context, fileName, bitmap)
-        val download = registerWithDownloadManager(context, file, report.type)
-        bitmap.recycle()
+            val gallery = saveToGallery(context, fileName, bitmap)
+            val download = registerWithDownloadManager(context, file, report.type)
 
-        return when {
-            gallery.success && download.success -> Result(true, "갤러리와 다운로드 매니저에 리포트 이미지를 저장했습니다.")
-            gallery.success -> Result(true, "갤러리에 리포트 이미지를 저장했습니다.")
-            download.success -> Result(true, "다운로드 매니저에 리포트 이미지를 저장했습니다.")
-            else -> Result(false, gallery.message)
+            when {
+                gallery.success && download.success -> Result(true, "갤러리와 다운로드 매니저에 리포트 이미지를 저장했습니다.")
+                gallery.success -> Result(true, "갤러리에 리포트 이미지를 저장했습니다.")
+                download.success -> Result(true, "다운로드 매니저에 리포트 이미지를 저장했습니다.")
+                else -> Result(false, gallery.message)
+            }
+        } finally {
+            bitmap.recycle()
         }
     }
 
@@ -70,8 +74,9 @@ object ReportDownloadManager {
             Result(false, "다운로드 매니저 저장에 실패했습니다.")
         }
 
-    private fun saveToGallery(context: Context, fileName: String, bitmap: Bitmap): Result =
-        runCatching {
+    private fun saveToGallery(context: Context, fileName: String, bitmap: Bitmap): Result {
+        var insertedUri: Uri? = null
+        return runCatching {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 val values = ContentValues().apply {
                     put(MediaStore.Images.Media.DISPLAY_NAME, fileName)
@@ -80,10 +85,10 @@ object ReportDownloadManager {
                     put(MediaStore.Images.Media.IS_PENDING, 1)
                 }
                 val resolver = context.contentResolver
-                val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+                val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values).also { insertedUri = it }
                     ?: return@runCatching Result(false, "갤러리에 저장할 수 없습니다.")
                 resolver.openOutputStream(uri)?.use { stream ->
-                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
+                    check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream))
                 } ?: return@runCatching Result(false, "갤러리 파일을 열 수 없습니다.")
                 resolver.update(uri, ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) }, null, null)
                 Result(true, "갤러리에 리포트 이미지를 저장했습니다.")
@@ -91,14 +96,17 @@ object ReportDownloadManager {
                 val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
                     .resolve("OliveMe")
                     .apply { mkdirs() }
-                FileOutputStream(File(dir, fileName)).use { out ->
-                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
-                }
+                val image = File(dir, fileName).apply { writeBitmapToFile(bitmap, this) }
+                MediaScannerConnection.scanFile(context, arrayOf(image.absolutePath), arrayOf("image/png"), null)
                 Result(true, "갤러리에 리포트 이미지를 저장했습니다.")
             }
         }.getOrElse {
+            insertedUri?.let { uri ->
+                runCatching { context.contentResolver.delete(uri, null, null) }
+            }
             Result(false, "갤러리에 리포트 이미지를 저장할 수 없습니다.")
         }
+    }
 
     private fun PersonalColorResult.toReportBitmap(): Bitmap {
         val width = 1080
@@ -142,7 +150,7 @@ object ReportDownloadManager {
             val cy = 790f
             accent.color = color.hex.toAndroidColor()
             canvas.drawCircle(cx, cy, 46f, accent)
-            canvas.drawText(color.name.take(7), cx - 54f, cy + 88f, small)
+            drawCenteredText(canvas, color.name, small, cx, cy + 88f, 118f)
         }
 
         canvas.drawRoundRect(RectF(60f, 940f, 1020f, 1230f), 36f, 36f, card)
@@ -160,6 +168,13 @@ object ReportDownloadManager {
         return bitmap
     }
 
+    private fun writeBitmapToFile(bitmap: Bitmap, file: File) {
+        FileOutputStream(file).use { out ->
+            check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, out))
+        }
+        check(file.exists() && file.length() > 0L)
+    }
+
     private fun drawWrappedText(
         canvas: Canvas,
         text: String,
@@ -170,31 +185,59 @@ object ReportDownloadManager {
         lineHeight: Float,
         maxLines: Int,
     ) {
-        var line = ""
+        val clean = text.replace(Regex("\\s+"), " ").trim()
+        if (clean.isBlank()) return
+
         var currentY = y
-        var lines = 0
-        text.split(" ").forEach { word ->
-            val candidate = if (line.isEmpty()) word else "$line $word"
-            if (paint.measureText(candidate) <= maxWidth) {
-                line = candidate
-            } else {
-                canvas.drawText(line, x, currentY, paint)
-                currentY += lineHeight
-                lines += 1
-                line = word
+        var start = 0
+        repeat(maxLines) { lineIndex ->
+            if (start >= clean.length) return
+            var end = start + 1
+            var lastGood = end
+            while (end <= clean.length && paint.measureText(clean.substring(start, end)) <= maxWidth) {
+                lastGood = end
+                end += 1
             }
-            if (lines >= maxLines) return
-        }
-        if (line.isNotBlank() && lines < maxLines) {
+            if (lastGood <= start) lastGood = start + 1
+
+            var line = clean.substring(start, lastGood).trim()
+            if (lineIndex == maxLines - 1 && lastGood < clean.length) {
+                line = ellipsizeToWidth(line, paint, maxWidth)
+            }
             canvas.drawText(line, x, currentY, paint)
+            currentY += lineHeight
+            start = lastGood
+            while (start < clean.length && clean[start].isWhitespace()) {
+                start += 1
+            }
         }
+    }
+
+    private fun drawCenteredText(canvas: Canvas, text: String, paint: Paint, centerX: Float, y: Float, maxWidth: Float) {
+        val label = ellipsizeToWidth(text, paint, maxWidth)
+        canvas.drawText(label, centerX - paint.measureText(label) / 2f, y, paint)
+    }
+
+    private fun ellipsizeToWidth(text: String, paint: Paint, maxWidth: Float): String {
+        val suffix = "..."
+        if (paint.measureText(text) <= maxWidth) return text
+        var candidate = text
+        while (candidate.isNotEmpty() && paint.measureText(candidate + suffix) > maxWidth) {
+            candidate = candidate.dropLast(1)
+        }
+        return if (candidate.isBlank()) suffix else candidate + suffix
     }
 
     private fun String.toAndroidColor(): Int =
         runCatching { Color.parseColor(this) }.getOrDefault(Color.rgb(221, 121, 148))
 
-    private fun safeFileName(name: String): String =
-        name.replace(Regex("[\\\\/:*?\"<>|\\s]+"), "_").take(96)
+    private fun reportFileName(type: String): String {
+        val base = safeFileNamePart("OliveMe_${type}_${timestamp()}").ifBlank { "OliveMe_report_${timestamp()}" }
+        return "${base.take(88)}.png"
+    }
+
+    private fun safeFileNamePart(name: String): String =
+        name.replace(Regex("[\\\\/:*?\"<>|\\s]+"), "_").trim('_')
 
     private fun timestamp(): String =
         SimpleDateFormat("yyyyMMdd_HHmmss", Locale.KOREA).format(Date())

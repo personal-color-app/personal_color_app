@@ -1,5 +1,30 @@
 # OliveMe QA Evidence
 
+## 2026-06-21 DownloadManager Scenario Re-QA + README Export
+
+- Artifact directory: `/tmp/oliveme-downloadmanager-final-20260621-144528`
+- Scope:
+  - Re-tested the Android OS `DownloadManager` report-image feature after hardening filename preservation, PNG write validation, MediaStore cleanup on failure, pre-Q media scan fallback, and Canvas text ellipsis/wrapping.
+  - README now includes grading-specific explanations and the actual exported PNG report image.
+  - New evidence images were copied to both `img/` and `C:\Users\pjjpj\Desktop\new`.
+- Build/install:
+  - `cmd.exe /C gradlew.bat :app:compileDebugKotlin --console=plain`: pass.
+  - `cmd.exe /C gradlew.bat :app:testDebugUnitTest :app:assembleDebug :app:installDebug --console=plain`: pass.
+- Android E2E scenarios:
+  - Login -> email -> guest -> 2FA -> Main -> MyPage completed on `emulator-5554`.
+  - MyPage latest report save button showed without clipping. Double-tapping `리포트 이미지 저장` increased `/sdcard/Pictures/OliveMe` file count from 3 to 4, confirming duplicate-tap guard prevented a second write in the same save window. Evidence: `android/03-mypage-report-save-button.png`, `android/04-mypage-after-report-save.png`, `logs/pictures-before-mypage.txt`, `logs/pictures-after-mypage.txt`.
+  - MyPage history -> Result opened the selected report, and Result bottom `리포트 이미지 저장` increased file count from 4 to 5. Evidence: `android/06-result-report-save-button.png`, `android/07-result-after-report-save.png`, `logs/pictures-before-result.txt`, `logs/pictures-after-result.txt`.
+  - The latest exported PNG was pulled from `/sdcard/Pictures/OliveMe` with `exec-out cat` and validated as `PNG image data, 1080 x 1600`. Evidence: `files/exported-report.png`, `logs/latest-exported-report-path.txt`.
+  - MediaStore showed the generated files under `relative_path=Pictures/OliveMe/`, and logcat showed MediaProvider finalization plus DownloadProvider notification events. Evidence: `logs/report-image-files.txt`, `logs/report-save-filtered-logcat.txt`.
+  - Final crash buffer was 0 lines: `logs/crash-final.txt`.
+- README/Desktop images:
+  - `img/grading-downloadmanager-report-save-mypage.png`
+  - `img/grading-downloadmanager-report-save-result.png`
+  - `img/grading-downloadmanager-exported-report.png`
+  - `C:\Users\pjjpj\Desktop\new\grading-downloadmanager-report-save-mypage.png`
+  - `C:\Users\pjjpj\Desktop\new\grading-downloadmanager-report-save-result.png`
+  - `C:\Users\pjjpj\Desktop\new\grading-downloadmanager-exported-report.png`
+
 ## 2026-06-21 Android OS DownloadManager Report Image QA
 
 - Artifact directory: `/tmp/oliveme-downloadmanager-qa-20260621-143414`

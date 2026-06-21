@@ -56,8 +56,12 @@ class ResultActivity : ComponentActivity() {
         }
         reportDownloadRunning = true
         lifecycleScope.launch {
-            val result = withContext(Dispatchers.IO) {
-                ReportDownloadManager.saveReport(applicationContext, state.result)
+            val result = runCatching {
+                withContext(Dispatchers.IO) {
+                    ReportDownloadManager.saveReport(applicationContext, state.result)
+                }
+            }.getOrElse {
+                ReportDownloadManager.Result(false, "리포트 이미지를 저장할 수 없습니다.")
             }
             reportDownloadRunning = false
             Toast.makeText(this@ResultActivity, result.message, Toast.LENGTH_SHORT).show()
