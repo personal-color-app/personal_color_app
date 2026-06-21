@@ -258,14 +258,7 @@ class DiagnosisRepository(
         }
 
     private fun TonePolicy.productItems(): List<ProductRecommendation> =
-        (outfit + makeup).map { item ->
-            ProductRecommendation(
-                category = item.getOrElse(0) { "아이템" },
-                title = item.getOrElse(1) { "추천 아이템" },
-                subtitle = item.getOrElse(2) { "퍼스널 컬러 기준 추천" },
-                colorHex = item.getOrElse(3) { "#722F37" },
-            )
-        }
+        policyProductItems()
 
     private fun List<ColorItem>.needsPaletteRepair(subtype: String): Boolean {
         if (size < 6) return true

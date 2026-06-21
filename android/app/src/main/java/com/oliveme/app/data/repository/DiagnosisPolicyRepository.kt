@@ -250,8 +250,8 @@ data class TonePolicy(
             avoidColors = avoidColors.map { color ->
                 ColorItem(color.getOrElse(0) { "#D9A05B" }, color.getOrElse(1) { "주의색" }, "avoid")
             },
-            clothes = outfit.map { item -> item.toProduct() },
-            makeup = makeup.map { item -> item.toProduct() }.groupBy { it.category },
+            clothes = policyOutfitProducts(),
+            makeup = policyMakeupProducts().groupBy { it.category },
             traits = features,
             keywords = listOf(season, temperature, value, chroma, contrast).filter { it.isNotBlank() },
             productKeywords = productKeywords,
@@ -259,11 +259,144 @@ data class TonePolicy(
         )
 }
 
-private fun List<String>.toProduct(): ProductRecommendation =
-    ProductRecommendation(
-        category = getOrElse(0) { "아이템" },
-        title = getOrElse(1) { "추천 아이템" },
-        subtitle = getOrElse(2) { "퍼스널 컬러와 잘 맞는 선택" },
-        colorHex = getOrElse(3) { "#722F37" },
-        searchKeywords = drop(1).take(2),
+internal fun TonePolicy.policyProductItems(): List<ProductRecommendation> =
+    policyOutfitProducts() + policyMakeupProducts()
+
+internal fun TonePolicy.policyOutfitProducts(): List<ProductRecommendation> =
+    outfit.mapIndexed { index, item ->
+        item.toPolicyProduct(defaultCategory = "아이템", subtype = subtype, index = index)
+    }
+
+internal fun TonePolicy.policyMakeupProducts(): List<ProductRecommendation> {
+    val parsed = makeup.mapIndexed { index, item ->
+        val defaultCategory = RequiredMakeupCategories.getOrElse(index) { "메이크업" }
+        item.toPolicyProduct(defaultCategory = defaultCategory, subtype = subtype, index = index)
+    }
+    val byCategory = parsed
+        .map { product -> product.copy(category = normalizePolicyProductCategory(product.category, product.title)) }
+        .filter { product -> product.category in RequiredMakeupCategories }
+        .groupBy { it.category }
+
+    return RequiredMakeupCategories.map { category ->
+        byCategory[category]?.firstOrNull()
+            ?: defaultPolicyMakeupProduct(category, subtype)
+    }
+}
+
+private val RequiredMakeupCategories = listOf("립", "아이", "베이스", "치크")
+
+private fun List<String>.toPolicyProduct(defaultCategory: String, subtype: String, index: Int): ProductRecommendation {
+    val category = normalizePolicyProductCategory(getOrElse(0) { defaultCategory }, getOrNull(1).orEmpty())
+    val fallback = if (category in RequiredMakeupCategories) {
+        defaultPolicyMakeupProduct(category, subtype)
+    } else {
+        defaultPolicyWearProduct(category, subtype, index)
+    }
+    val title = getOrNull(1)?.takeIf { it.isConcretePolicyTitle() } ?: fallback.title
+    val subtitle = getOrNull(2)?.takeIf { it.isNotBlank() } ?: fallback.subtitle
+    val colorHex = getOrNull(3)?.takeIf { it.isValidPolicyHex() } ?: fallback.colorHex
+    return ProductRecommendation(
+        category = category.takeIf { it.isNotBlank() && it != "추천" } ?: fallback.category,
+        title = title,
+        subtitle = subtitle,
+        colorHex = colorHex,
+        searchKeywords = listOf(title, category, fallback.title)
+            .map { it.trim() }
+            .filter { it.isConcretePolicyTitle() }
+            .distinct()
+            .take(3),
     )
+}
+
+private fun normalizePolicyProductCategory(rawCategory: String, title: String): String {
+    val raw = rawCategory.trim()
+    val text = "$rawCategory $title"
+    return when {
+        text.contains("립") || raw.equals("lip", true) -> "립"
+        text.contains("아이") || text.contains("섀도") || text.contains("섀도우") || raw.equals("eye", true) -> "아이"
+        text.contains("베이스") || text.contains("쿠션") || text.contains("파운데이션") || raw.equals("base", true) -> "베이스"
+        text.contains("치크") || text.contains("블러셔") || raw.equals("cheek", true) -> "치크"
+        raw.equals("top", true) -> "상의"
+        raw.equals("outer", true) || raw.equals("jacket", true) -> "아우터"
+        raw.equals("dress", true) -> "원피스"
+        raw.equals("bottom", true) -> "하의"
+        raw.isNotBlank() && raw.isConcretePolicyTitle() -> raw
+        else -> "아이템"
+    }
+}
+
+private fun defaultPolicyWearProduct(category: String, subtype: String, index: Int): ProductRecommendation {
+    val color = defaultPolicyColorFor(subtype, index)
+    val safeCategory = category.takeIf { it.isNotBlank() && it != "아이템" } ?: "아이템"
+    return ProductRecommendation(
+        category = safeCategory,
+        title = "${color.second} $safeCategory",
+        subtitle = "퍼스널 컬러와 잘 맞는 선택",
+        colorHex = color.first,
+        searchKeywords = listOf("${color.second} $safeCategory", safeCategory),
+    )
+}
+
+private fun defaultPolicyMakeupProduct(category: String, subtype: String): ProductRecommendation {
+    val (title, hex) = when (category) {
+        "립" -> when {
+            subtype.startsWith("spring") -> "피치 코랄 립" to "#FF8F70"
+            subtype.startsWith("summer") -> "소프트 로즈 립" to "#D7A7B5"
+            subtype.startsWith("autumn") -> "브릭 로즈 립" to "#A45A2A"
+            subtype == "winter-deep" -> "딥 베리 립" to "#5B1A1F"
+            else -> "쿨 로즈 립" to "#B85C7B"
+        }
+        "아이" -> when {
+            subtype.startsWith("spring") -> "샴페인 베이지 섀도" to "#F6D365"
+            subtype.startsWith("summer") -> "모브 브라운 섀도" to "#9D8497"
+            subtype.startsWith("autumn") -> "카멜 브라운 섀도" to "#C18A4A"
+            subtype == "winter-deep" -> "차콜 브라운 섀도" to "#111827"
+            else -> "그레이 브라운 섀도" to "#6B7280"
+        }
+        "베이스" -> when {
+            subtype.startsWith("spring") -> "아이보리 톤업 베이스" to "#FFF1C7"
+            subtype.startsWith("summer") -> "핑크 톤업 베이스" to "#F3D4DE"
+            subtype.startsWith("autumn") -> "웜 아이보리 베이스" to "#E9C8A8"
+            else -> "핑크 베이스" to "#F2C2D1"
+        }
+        else -> when {
+            subtype.startsWith("spring") -> "라이트 코랄 치크" to "#FFB7A8"
+            subtype.startsWith("summer") -> "쿨 핑크 치크" to "#D7A7B5"
+            subtype.startsWith("autumn") -> "베이지 치크" to "#D8B58A"
+            else -> "쿨 로즈 치크" to "#B85C7B"
+        }
+    }
+    return ProductRecommendation(
+        category = category,
+        title = title,
+        subtitle = when (category) {
+            "립" -> "얼굴빛을 살리는 포인트 컬러"
+            "아이" -> "눈매를 흐리지 않는 음영"
+            "베이스" -> "피부 톤을 맑게 정리"
+            else -> "과하지 않은 혈색 보정"
+        },
+        colorHex = hex,
+        searchKeywords = listOf(title, category),
+    )
+}
+
+private fun defaultPolicyColorFor(subtype: String, index: Int): Pair<String, String> {
+    val colors = when {
+        subtype.startsWith("spring") -> listOf("#FFF1C7" to "크림", "#FF8F70" to "코랄", "#F6D365" to "허니 옐로")
+        subtype.startsWith("summer") -> listOf("#C9B8E8" to "라벤더", "#D7A7B5" to "로즈", "#B7C7D9" to "스모키 블루")
+        subtype.startsWith("autumn") -> listOf("#A45A2A" to "브릭", "#7C6A35" to "올리브", "#C18A4A" to "카멜")
+        subtype == "winter-deep" -> listOf("#5B1A1F" to "딥 베리", "#0B1026" to "블랙 네이비", "#4A2347" to "딥 플럼")
+        else -> listOf("#722F37" to "와인", "#1B2A4E" to "네이비", "#4A2347" to "플럼")
+    }
+    return colors[index % colors.size]
+}
+
+private fun String.isConcretePolicyTitle(): Boolean {
+    val text = trim()
+    return text.isNotBlank() &&
+        text !in setOf("추천", "추천 아이템", "아이템", "제품", "상품", "메이크업", "컬러", "팔레트") &&
+        !text.endsWith("추천 아이템")
+}
+
+private fun String.isValidPolicyHex(): Boolean =
+    matches(Regex("^#[0-9A-Fa-f]{6}$"))
