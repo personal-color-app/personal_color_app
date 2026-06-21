@@ -14,6 +14,7 @@ import androidx.compose.runtime.remember
 import com.oliveme.app.data.repository.AppGraph
 import com.oliveme.app.ui.screens.MainScreen
 import com.oliveme.app.ui.theme.OliveMeTheme
+import com.oliveme.app.util.MapDataWarmup
 
 class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
@@ -26,6 +27,7 @@ class MainActivity : ComponentActivity() {
         AppGraph.init(this)
         val user = currentUser()
         viewModel.load(user.userId)
+        MapDataWarmup.schedule(user.userId)
         setContent {
             val themeName by AppGraph.themePreferenceRepository.theme.collectAsState()
             OliveMeTheme(themeName = themeName) {

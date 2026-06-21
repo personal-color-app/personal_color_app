@@ -12,6 +12,7 @@ import com.oliveme.app.data.repository.AppGraph
 import com.oliveme.app.ui.screens.ResultScreen
 import com.oliveme.app.ui.theme.OliveMeTheme
 import com.oliveme.app.util.IntentKeys
+import com.oliveme.app.util.MapDataWarmup
 
 class ResultActivity : ComponentActivity() {
     private val viewModel: ResultViewModel by viewModels()
@@ -21,6 +22,7 @@ class ResultActivity : ComponentActivity() {
         AppGraph.init(this)
         val user = currentUser()
         viewModel.load(user.userId, intent.getStringExtra(IntentKeys.DIAGNOSIS_ID))
+        MapDataWarmup.schedule(user.userId)
         setContent {
             val themeName by AppGraph.themePreferenceRepository.theme.collectAsState()
             OliveMeTheme(themeName = themeName) {

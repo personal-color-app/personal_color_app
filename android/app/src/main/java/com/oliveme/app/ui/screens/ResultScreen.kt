@@ -5,6 +5,7 @@ import android.widget.ImageView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,6 +22,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -35,6 +38,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -46,6 +50,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.unit.Dp
@@ -53,6 +58,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bumptech.glide.Glide
 import com.oliveme.app.ResultUiState
+import com.oliveme.app.data.repository.CommerceAiRecommendation
 import com.oliveme.app.data.repository.CommerceAiProductPick
 import com.oliveme.app.data.repository.CommerceRecommendationSection
 import com.oliveme.app.data.repository.CommerceProductRecommendation
@@ -129,7 +135,10 @@ fun ResultScreen(
                     }
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 listOf("내 컬러", "의상", "메이크업", "특징").forEachIndexed { index, label ->
                     Pill(label, selected = page == index) { page = index }
                 }
@@ -204,7 +213,15 @@ private fun TypePage(
                 )
                 Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
                     Text(result.englishLabel, color = OliveCard.copy(alpha = 0.84f), fontSize = 13.sp)
-                    Text(result.type, color = OliveCard, fontSize = 34.sp, lineHeight = 40.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        result.type.compactToneName(),
+                        color = OliveCard,
+                        fontSize = 32.sp,
+                        lineHeight = 38.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                     Text(result.description, color = OliveCard.copy(alpha = 0.92f), fontSize = 13.sp, lineHeight = 20.sp)
                 }
             }
@@ -248,37 +265,26 @@ private fun ProductPage(
     modifier: Modifier = Modifier,
 ) {
     val uriHandler = LocalUriHandler.current
-    LazyColumn(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    val listState = rememberLazyListState()
+    val guideItems = items.filter { it.title.isNotBlank() || it.subtitle.isNotBlank() || it.category.isNotBlank() }
+    val renderableProducts = commerce.products.filter(::isRenderableCommerceProduct)
+    val ai = commerce.ai?.sanitizedFor(renderableProducts)
+    LaunchedEffect(title) {
+        listState.scrollToItem(0)
+    }
+    LazyColumn(
+        state = listState,
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(bottom = 18.dp),
+    ) {
         item { Text(title, color = OliveText, fontSize = 22.sp, fontWeight = FontWeight.Bold) }
-        if (items.isNotEmpty()) {
-            item {
-                ProductColorGuideCard(items)
-            }
+        item {
+            BasicProductColorSummaryCard(guideItems)
         }
-        if (commerce.products.isNotEmpty()) {
-            commerce.ai?.let { ai ->
-                item {
-                    OliveCardBlock {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("AI 추천", color = OlivePrimaryDeep, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            if (ai.headline.isNotBlank()) {
-                                Text(ai.headline, color = OliveText, fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.Bold)
-                            }
-                            if (ai.summary.isNotBlank()) {
-                                Text(ai.summary, color = OliveTextMid, fontSize = 13.sp, lineHeight = 20.sp)
-                            }
-                            ai.bullets.take(3).forEach { bullet ->
-                                Text("• $bullet", color = OliveTextDim, fontSize = 12.sp, lineHeight = 18.sp)
-                            }
-                            if (ai.picks.isNotEmpty()) {
-                                Text("AI가 고른 상품", color = OliveText, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                ai.picks.take(3).forEach { pick ->
-                                    AiProductPickRow(pick, uriHandler::openUri)
-                                }
-                            }
-                        }
-                    }
-                }
+        if (renderableProducts.isNotEmpty()) {
+            ai?.let {
+                item { AiRecommendationCard(it, uriHandler::openUri) }
             }
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -286,8 +292,109 @@ private fun ProductPage(
                     Text("Naver Shopping 기준으로 지금 볼 수 있는 상품만 보여드려요.", color = OliveTextDim, fontSize = 11.sp)
                 }
             }
-            items(commerce.products) { product ->
+            items(renderableProducts) { product ->
                 CommerceProductCard(product, uriHandler::openUri)
+            }
+        } else {
+            item {
+                LocalGuideOnlyCard()
+            }
+        }
+        if (guideItems.isNotEmpty()) {
+            item {
+                ProductColorGuideCard(guideItems)
+            }
+        }
+    }
+}
+
+@Composable
+private fun LocalGuideOnlyCard() {
+    OliveCardBlock {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("로컬 컬러 가이드", color = OlivePrimaryDeep, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Text(
+                "백엔드 상품 추천이 연결되면 AI 추천과 실시간 상품을 함께 보여드려요. 지금은 저장된 진단 팔레트 기준으로만 정리합니다.",
+                color = OliveTextMid,
+                fontSize = 12.sp,
+                lineHeight = 18.sp,
+            )
+        }
+    }
+}
+
+@Composable
+private fun BasicProductColorSummaryCard(items: List<ProductRecommendation>) {
+    OliveCardBlock {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Text("기본 컬러 요약", color = OlivePrimaryDeep, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    if (items.isNotEmpty()) {
+                        "사진 기준 추천 색을 먼저 짧게 정리했어요."
+                    } else {
+                        "내 컬러 탭의 팔레트를 기준으로 확인해주세요."
+                    },
+                    color = OliveTextMid,
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (items.isNotEmpty()) {
+                    Text(
+                        items.take(3).joinToString(" · ") { productColorName(it) },
+                        color = OliveText,
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            if (items.isNotEmpty()) {
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    items.take(4).forEach { product ->
+                        Box(
+                            Modifier
+                                .size(34.dp)
+                                .background(safeComposeColor(product.colorHex), CircleShape)
+                                .border(2.dp, OliveCard, CircleShape),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AiRecommendationCard(ai: CommerceAiRecommendation, openUri: (String) -> Unit) {
+    OliveCardBlock {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("AI 추천", color = OlivePrimaryDeep, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            if (ai.headline.isNotBlank()) {
+                Text(
+                    ai.headline,
+                    color = OliveText,
+                    fontSize = 18.sp,
+                    lineHeight = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            if (ai.summary.isNotBlank()) {
+                Text(ai.summary, color = OliveTextMid, fontSize = 13.sp, lineHeight = 20.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
+            }
+            ai.bullets.take(3).forEach { bullet ->
+                Text("• $bullet", color = OliveTextDim, fontSize = 12.sp, lineHeight = 18.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+            if (ai.picks.isNotEmpty()) {
+                Text("AI가 고른 상품", color = OliveText, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                ai.picks.take(3).forEach { pick ->
+                    AiProductPickRow(pick, openUri)
+                }
             }
         }
     }
@@ -298,8 +405,8 @@ private fun ProductColorGuideCard(items: List<ProductRecommendation>) {
     OliveCardBlock {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("컬러 가이드", color = OliveText, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Text("추천 색을 어느 파트에 쓰면 좋은지 정리했어요.", color = OliveTextDim, fontSize = 12.sp)
+                Text("최종 컬러 분석", color = OliveText, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text("추천 색을 어느 파트에 쓰면 좋은지 자세히 정리했어요.", color = OliveTextDim, fontSize = 12.sp)
             }
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("추천 팔레트", color = OliveText, fontSize = 16.sp, fontWeight = FontWeight.Bold)
@@ -340,7 +447,7 @@ private fun ProductPaletteSwatch(product: ProductRecommendation) {
                     .background(safeComposeColor(product.colorHex), CircleShape),
             )
         }
-        Text(productColorName(product), color = OliveTextDim, fontSize = 12.sp, lineHeight = 14.sp)
+        Text(productColorName(product), color = OliveTextDim, fontSize = 12.sp, lineHeight = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -365,9 +472,17 @@ private fun ProductColorGuideRow(product: ProductRecommendation) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(product.category, color = OlivePrimaryDeep, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 Text("·", color = OliveTextDim, fontSize = 12.sp)
-                Text(productColorName(product), color = OliveText, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    productColorName(product),
+                    color = OliveText,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
             }
-            Text(product.subtitle, color = OliveTextDim, fontSize = 11.sp, lineHeight = 15.sp)
+            Text(product.subtitle, color = OliveTextDim, fontSize = 11.sp, lineHeight = 15.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -379,8 +494,8 @@ private fun AiProductPickRow(pick: CommerceAiProductPick, openUri: (String) -> U
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
             .background(Color(0xFFFFF5F7))
-            .clickable(enabled = pick.product.linkUrl.isNotBlank()) {
-                runCatching { openUri(pick.product.linkUrl) }
+            .clickable(enabled = isSafeProductUrl(pick.product.linkUrl)) {
+                openProductUrl(openUri, pick.product.linkUrl)
             }
             .padding(8.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -388,13 +503,13 @@ private fun AiProductPickRow(pick: CommerceAiProductPick, openUri: (String) -> U
     ) {
         ProductThumbnail(pick.product, size = 52.dp)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(pick.product.title, color = OliveText, fontSize = 13.sp, lineHeight = 17.sp, fontWeight = FontWeight.Bold)
-            Text(pick.reason, color = OliveTextDim, fontSize = 11.sp, lineHeight = 15.sp)
+            Text(pick.product.title, color = OliveText, fontSize = 13.sp, lineHeight = 17.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(pick.reason, color = OliveTextDim, fontSize = 11.sp, lineHeight = 15.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (pick.product.priceLabel.isNotBlank()) {
                     Text(pick.product.priceLabel, color = OlivePrimaryDeep, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
-                Text(pick.product.mallName, color = OliveTextDim, fontSize = 10.sp)
+                Text(pick.product.mallName, color = OliveTextDim, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }
@@ -403,20 +518,20 @@ private fun AiProductPickRow(pick: CommerceAiProductPick, openUri: (String) -> U
 @Composable
 private fun CommerceProductCard(product: CommerceProductRecommendation, openUri: (String) -> Unit) {
     OliveCardBlock(
-        Modifier.clickable(enabled = product.linkUrl.isNotBlank()) {
-            runCatching { openUri(product.linkUrl) }
+        Modifier.clickable(enabled = isSafeProductUrl(product.linkUrl)) {
+            openProductUrl(openUri, product.linkUrl)
         },
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
             ProductThumbnail(product)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(product.title, color = OliveText, fontWeight = FontWeight.Bold, fontSize = 14.sp, lineHeight = 18.sp)
-                Text(product.subtitle, color = OliveTextDim, fontSize = 12.sp, lineHeight = 16.sp)
+                Text(product.title, color = OliveText, fontWeight = FontWeight.Bold, fontSize = 14.sp, lineHeight = 18.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(product.subtitle, color = OliveTextDim, fontSize = 12.sp, lineHeight = 16.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (product.priceLabel.isNotBlank()) {
                         Text(product.priceLabel, color = OlivePrimaryDeep, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
-                    Text(product.mallName, color = OliveTextDim, fontSize = 11.sp)
+                    Text(product.mallName, color = OliveTextDim, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         }
@@ -461,13 +576,75 @@ private fun productColorName(product: ProductRecommendation): String {
         "립", "립스틱", "틴트", "섀도", "섀도우", "블러셔", "치크", "베이스", "파운데이션",
         "상의", "하의", "아이", "메이크업",
     )
-    return product.title
+    val cleanedName = product.title
         .split(" ")
         .filterNot { token -> categoryWords.any { word -> token.contains(word) } }
         .joinToString(" ")
         .ifBlank { product.title }
         .trim()
+    return if (cleanedName.isGenericProductColorName()) {
+        val category = product.category.normalizedProductCategory()
+        if (category.isNotBlank()) "$category 추천" else product.title.ifBlank { "추천 팔레트" }
+    } else {
+        cleanedName
+    }
 }
+
+private fun String.isGenericProductColorName(): Boolean =
+    isBlank() || this == "추천" || this == "컬러" || this == "팔레트" || this == "제품" || this == "아이템"
+
+private fun String.normalizedProductCategory(): String =
+    when (trim().lowercase()) {
+        "top", "상의" -> "상의"
+        "bottom", "하의" -> "하의"
+        "outer", "아우터", "jacket", "재킷", "자켓" -> "아우터"
+        "dress", "원피스" -> "원피스"
+        "lip", "립", "립스틱", "틴트" -> "립"
+        "eye", "아이", "섀도", "섀도우" -> "아이"
+        "base", "베이스", "파운데이션", "쿠션" -> "베이스"
+        "cheek", "치크", "블러셔" -> "치크"
+        "makeup", "메이크업" -> "메이크업"
+        else -> trim()
+    }
+
+private fun isRenderableCommerceProduct(product: CommerceProductRecommendation): Boolean =
+    product.title.isNotBlank() &&
+        product.linkUrl.isNotBlank() &&
+        product.imageUrl.isNotBlank()
+
+private fun CommerceAiRecommendation.sanitizedFor(products: List<CommerceProductRecommendation>): CommerceAiRecommendation? {
+    val productsByRank = products.associateBy { it.rank }
+    val cleanedPicks = picks.mapNotNull { pick ->
+        val product = productsByRank[pick.product.rank] ?: return@mapNotNull null
+        CommerceAiProductPick(
+            product = product,
+            reason = pick.reason.trim().ifBlank { "리포트 팔레트와 잘 맞는 후보입니다." },
+        )
+    }.take(3)
+    val cleaned = CommerceAiRecommendation(
+        headline = headline.trim(),
+        summary = summary.trim(),
+        bullets = bullets.map { it.trim() }.filter { it.isNotBlank() }.take(3),
+        picks = cleanedPicks,
+    )
+    return cleaned.takeIf {
+        it.headline.isNotBlank() || it.summary.isNotBlank() || it.bullets.isNotEmpty() || it.picks.isNotEmpty()
+    }
+}
+
+private fun isSafeProductUrl(rawUrl: String): Boolean {
+    val url = rawUrl.trim()
+    return url.startsWith("https://") || url.startsWith("http://")
+}
+
+private fun openProductUrl(openUri: (String) -> Unit, rawUrl: String) {
+    val url = rawUrl.trim()
+    if (!isSafeProductUrl(url)) return
+    runCatching { openUri(url) }
+}
+
+private fun String.compactToneName(): String =
+    substringBefore(" (").trim().ifBlank { this }
 
 @Composable
 private fun TraitsPage(traits: List<String>, keywords: List<String>, signature: String, modifier: Modifier = Modifier) {

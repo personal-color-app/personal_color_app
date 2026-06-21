@@ -75,13 +75,14 @@ class GeminiPersonalColorService(
         val subtype = canonicalSubtype(root.str("subtype"), season)
         val score = root.score("matchScore") ?: root.score("confidence") ?: 88
         val confidence = root.score("confidence") ?: score
-        val palette = root.array("palette").mapIndexed { index, color ->
+        val palette = root.array("palette").mapIndexedNotNull { index, color ->
+            val hex = color.hexOrNull("hex") ?: return@mapIndexedNotNull null
             ColorItem(
-                hex = color.hex("hex"),
-                name = color.str("name").ifBlank { if (index == 0) "대표색" else "추천색" },
+                hex = hex,
+                name = color.str("name").ifBlank { defaultColorName(hex, if (index == 0) "대표색" else "추천색") },
                 role = color.str("role").ifBlank { if (index == 0) "best" else "palette" },
             )
-        }.ifEmpty { defaultPalette(season) }
+        }.normalizedPalette(season, subtype)
         val avoidColors = root.array("avoidColors").map { color ->
             ColorItem(
                 hex = color.hex("hex"),
@@ -89,12 +90,11 @@ class GeminiPersonalColorService(
                 role = "avoid",
             )
         }
-        val outfit = root.array("outfit").map { it.toProduct("상의") }.ifEmpty { defaultOutfit(season) }
+        val outfit = root.array("outfit").mapIndexed { index, item ->
+            item.toProduct("상의", season, subtype, index)
+        }.ifEmpty { defaultOutfit(season, subtype) }
         val makeup = root.obj("makeup")
-            ?.entrySet()
-            ?.associate { entry -> entry.key to entry.value.asObjectArray().map { it.toProduct(entry.key) } }
-            .orEmpty()
-            .ifEmpty { defaultMakeup(season) }
+            .normalizedMakeup(season, subtype)
         val signature = root.signatureText().ifBlank { defaultSignature(season) }
         return PersonalColorResult(
             id = UUID.randomUUID().toString(),
@@ -137,20 +137,36 @@ class GeminiPersonalColorService(
     private fun JsonObject?.warnings(): List<String> =
         this?.stringList("warnings").orEmpty()
 
-    private fun JsonObject.toProduct(defaultCategory: String): ProductRecommendation =
-        ProductRecommendation(
-            category = str("category").ifBlank { defaultCategory },
-            title = str("title").ifBlank { "추천 아이템" },
-            subtitle = str("subtitle").ifBlank { str("reason").ifBlank { "퍼스널 컬러와 잘 맞는 선택" } },
-            colorHex = hex("colorHex"),
-            searchKeywords = listOf(str("title"), str("category")).filter { it.isNotBlank() },
+    private fun JsonObject.toProduct(defaultCategory: String, season: String, subtype: String, index: Int = 0): ProductRecommendation {
+        val rawTitle = str("title")
+        val category = normalizedRecommendationCategory(
+            rawCategory = str("category"),
+            defaultCategory = defaultCategory,
+            title = rawTitle,
         )
+        val fallback = fallbackProduct(category, season, subtype, index)
+        val title = rawTitle.takeUnless { it.isGenericRecommendationTitle() } ?: fallback.title
+        val colorHex = hexOrNull("colorHex") ?: fallback.colorHex
+        return ProductRecommendation(
+            category = category,
+            title = title,
+            subtitle = str("subtitle").ifBlank { str("reason").ifBlank { fallback.subtitle } },
+            colorHex = colorHex,
+            searchKeywords = listOf(title, category, str("title"), str("category"))
+                .map { it.trim() }
+                .filter { it.isNotBlank() && !it.isGenericRecommendationTitle() }
+                .distinct(),
+        )
+    }
 
     private fun JsonObject.str(name: String): String =
         get(name)?.asStringOrBlank().orEmpty()
 
     private fun JsonObject.hex(name: String): String =
-        str(name).takeIf { it.matches(Regex("^#[0-9A-Fa-f]{6}$")) } ?: "#722F37"
+        hexOrNull(name) ?: "#722F37"
+
+    private fun JsonObject.hexOrNull(name: String): String? =
+        str(name).takeIf { it.matches(Regex("^#[0-9A-Fa-f]{6}$")) }?.uppercase()
 
     private fun JsonObject.obj(name: String): JsonObject? =
         get(name)?.asJsonObjectOrNull()
@@ -283,19 +299,263 @@ class GeminiPersonalColorService(
             else -> "버건디와 네이비처럼 깊고 차가운 색이 안정적입니다."
         }
 
-    private fun defaultPalette(season: String): List<ColorItem> =
-        when (season) {
-            "spring" -> listOf(ColorItem("#F7B7A3", "피치", "best"), ColorItem("#FF8F70", "코랄", "palette"))
-            "summer" -> listOf(ColorItem("#C9B8E8", "라벤더", "best"), ColorItem("#D7A7B5", "더스티 로즈", "palette"))
-            "autumn" -> listOf(ColorItem("#A45A2A", "브릭", "best"), ColorItem("#C18A4A", "카멜", "palette"))
-            else -> listOf(ColorItem("#722F37", "와인", "best"), ColorItem("#1B2A4E", "네이비", "palette"))
+    private fun defaultPalette(season: String, subtype: String = ""): List<ColorItem> =
+        when {
+            subtype == "spring-light" -> listOf(
+                ColorItem("#FFF1C7", "크림", "best"),
+                ColorItem("#F7B7A3", "피치", "palette"),
+                ColorItem("#FFB7A8", "라이트 코랄", "palette"),
+                ColorItem("#FADADD", "웜 핑크", "palette"),
+                ColorItem("#A8D58B", "라이트 그린", "palette"),
+                ColorItem("#F6D365", "허니 옐로", "palette"),
+            )
+            subtype == "spring-bright" -> listOf(
+                ColorItem("#FF6F61", "브라이트 코랄", "best"),
+                ColorItem("#FFD447", "클리어 옐로", "palette"),
+                ColorItem("#79C267", "애플 그린", "palette"),
+                ColorItem("#FF9E80", "살몬", "palette"),
+                ColorItem("#00A6A6", "맑은 틸", "palette"),
+                ColorItem("#FFF1C7", "크림", "palette"),
+            )
+            subtype.startsWith("spring") -> listOf(
+                ColorItem("#F7B7A3", "피치", "best"),
+                ColorItem("#FF8F70", "코랄", "palette"),
+                ColorItem("#F6D365", "허니 옐로", "palette"),
+                ColorItem("#FFF1C7", "크림", "palette"),
+                ColorItem("#A8D58B", "라이트 그린", "palette"),
+                ColorItem("#FADADD", "웜 핑크", "palette"),
+            )
+            subtype == "summer-light" -> listOf(
+                ColorItem("#AEC6E8", "파우더 블루", "best"),
+                ColorItem("#E8DFF5", "라일락", "palette"),
+                ColorItem("#F3D4DE", "소프트 핑크", "palette"),
+                ColorItem("#DDEAF7", "아이스 블루", "palette"),
+                ColorItem("#C9B8E8", "라벤더", "palette"),
+                ColorItem("#FFFFFF", "소프트 화이트", "palette"),
+            )
+            subtype == "summer-soft" -> listOf(
+                ColorItem("#D7A7B5", "더스티 로즈", "best"),
+                ColorItem("#9D8497", "모브", "palette"),
+                ColorItem("#B7C7D9", "스모키 블루", "palette"),
+                ColorItem("#C9B8E8", "라벤더", "palette"),
+                ColorItem("#AFC7C0", "쿨 세이지", "palette"),
+                ColorItem("#F3D4DE", "소프트 핑크", "palette"),
+            )
+            subtype.startsWith("summer") -> listOf(
+                ColorItem("#C9B8E8", "라벤더", "best"),
+                ColorItem("#D7A7B5", "더스티 로즈", "palette"),
+                ColorItem("#AEC6E8", "파우더 블루", "palette"),
+                ColorItem("#E8DFF5", "라일락", "palette"),
+                ColorItem("#B7C7D9", "스모키 블루", "palette"),
+                ColorItem("#F3D4DE", "소프트 핑크", "palette"),
+            )
+            subtype == "autumn-soft" -> listOf(
+                ColorItem("#AFC7A1", "세이지", "best"),
+                ColorItem("#B8A070", "토프", "palette"),
+                ColorItem("#C18A4A", "소프트 카멜", "palette"),
+                ColorItem("#D8B58A", "베이지", "palette"),
+                ColorItem("#B98B72", "로즈 브라운", "palette"),
+                ColorItem("#7C6A35", "올리브", "palette"),
+            )
+            subtype == "autumn-deep" -> listOf(
+                ColorItem("#5E3B2E", "초콜릿", "best"),
+                ColorItem("#4E4A2A", "딥 올리브", "palette"),
+                ColorItem("#8A4B2F", "테라코타", "palette"),
+                ColorItem("#A45A2A", "브릭", "palette"),
+                ColorItem("#2F2A1F", "에스프레소", "palette"),
+                ColorItem("#C18A4A", "카멜", "palette"),
+            )
+            subtype.startsWith("autumn") -> listOf(
+                ColorItem("#A45A2A", "브릭", "best"),
+                ColorItem("#7C6A35", "올리브", "palette"),
+                ColorItem("#C18A4A", "카멜", "palette"),
+                ColorItem("#8A4B2F", "테라코타", "palette"),
+                ColorItem("#D9A05B", "머스터드", "palette"),
+                ColorItem("#5E3B2E", "초콜릿", "palette"),
+            )
+            subtype == "winter-bright" -> listOf(
+                ColorItem("#C13584", "푸시아", "best"),
+                ColorItem("#0047AB", "코발트", "palette"),
+                ColorItem("#E40046", "클리어 레드", "palette"),
+                ColorItem("#FFFFFF", "퓨어 화이트", "palette"),
+                ColorItem("#1B2A4E", "네이비", "palette"),
+                ColorItem("#00A6D6", "아이스 시안", "palette"),
+            )
+            subtype == "winter-deep" -> listOf(
+                ColorItem("#5B1A1F", "딥 베리", "best"),
+                ColorItem("#0B1026", "블랙 네이비", "palette"),
+                ColorItem("#4A2347", "딥 플럼", "palette"),
+                ColorItem("#B85C7B", "쿨 로즈", "palette"),
+                ColorItem("#D8DEE9", "실버 그레이", "palette"),
+                ColorItem("#F2C2D1", "아이스 핑크", "palette"),
+            )
+            season == "spring" -> defaultPalette("spring", "spring-warm")
+            season == "summer" -> defaultPalette("summer", "summer-cool")
+            season == "autumn" -> defaultPalette("autumn", "autumn-warm")
+            else -> listOf(
+                ColorItem("#722F37", "와인", "best"),
+                ColorItem("#1B2A4E", "네이비", "palette"),
+                ColorItem("#4A2347", "플럼", "palette"),
+                ColorItem("#C13584", "푸시아", "palette"),
+                ColorItem("#B7C7D9", "아이스 블루", "palette"),
+                ColorItem("#D8DEE9", "실버 그레이", "palette"),
+            )
         }
 
-    private fun defaultOutfit(season: String): List<ProductRecommendation> =
-        listOf(ProductRecommendation("상의", "${defaultToneName(season)} 니트", "톤에 맞춘 기본 상의", defaultPalette(season).first().hex))
+    private fun List<ColorItem>.normalizedPalette(season: String, subtype: String): List<ColorItem> {
+        val combined = this + defaultPalette(season, subtype)
+        return combined
+            .filter { it.hex.matches(Regex("^#[0-9A-F]{6}$")) }
+            .distinctBy { it.hex }
+            .take(6)
+            .mapIndexed { index, color ->
+                color.copy(role = if (index == 0) "best" else color.role.ifBlank { "palette" })
+            }
+    }
 
-    private fun defaultMakeup(season: String): Map<String, List<ProductRecommendation>> =
-        mapOf("립" to listOf(ProductRecommendation("립", "${defaultToneName(season)} 립", "얼굴색을 살리는 포인트", defaultPalette(season).first().hex)))
+    private fun defaultOutfit(season: String, subtype: String): List<ProductRecommendation> =
+        listOf(
+            fallbackProduct("상의", season, subtype, 0),
+            fallbackProduct("아우터", season, subtype, 1),
+            fallbackProduct("원피스", season, subtype, 2),
+        )
+
+    private fun JsonObject?.normalizedMakeup(season: String, subtype: String): Map<String, List<ProductRecommendation>> {
+        val parsed = this?.entrySet()
+            ?.flatMap { entry -> entry.value.asObjectArray().map { it.toProduct(entry.key, season, subtype) } }
+            .orEmpty()
+        val byCategory = parsed.groupBy { normalizedRecommendationCategory(it.category, it.category, it.title) }
+        return MakeupCategories.associateWith { category ->
+            byCategory[category]?.takeIf { it.isNotEmpty() }?.take(2)
+                ?: listOf(fallbackProduct(category, season, subtype))
+        }
+    }
+
+    private fun fallbackProduct(category: String, season: String, subtype: String, index: Int = 0): ProductRecommendation {
+        val safeCategory = normalizedRecommendationCategory(category, category, "")
+        val palette = defaultPalette(season, subtype)
+        val color = makeupColorFor(safeCategory, subtype)
+            ?: palette.getOrNull(index % palette.size)
+            ?: palette.first()
+        val title = when (safeCategory) {
+            "립" -> when {
+                subtype.startsWith("spring") -> "피치 코랄 립"
+                subtype.startsWith("summer") -> "소프트 로즈 립"
+                subtype.startsWith("autumn") -> "브릭 로즈 립"
+                subtype == "winter-deep" -> "딥 베리 립"
+                else -> "쿨 로즈 립"
+            }
+            "아이" -> when {
+                subtype.startsWith("spring") -> "샴페인 베이지 섀도"
+                subtype.startsWith("summer") -> "모브 브라운 섀도"
+                subtype.startsWith("autumn") -> "카멜 브라운 섀도"
+                subtype == "winter-deep" -> "차콜 브라운 섀도"
+                else -> "그레이 브라운 섀도"
+            }
+            "베이스" -> when {
+                subtype.startsWith("spring") -> "아이보리 톤업 베이스"
+                subtype.startsWith("summer") -> "핑크 톤업 베이스"
+                subtype.startsWith("autumn") -> "웜 아이보리 베이스"
+                else -> "핑크 베이스"
+            }
+            "치크" -> when {
+                subtype.startsWith("spring") -> "라이트 코랄 치크"
+                subtype.startsWith("summer") -> "쿨 핑크 치크"
+                subtype.startsWith("autumn") -> "베이지 치크"
+                else -> "쿨 로즈 치크"
+            }
+            "아우터" -> "${color.name} 재킷"
+            "원피스" -> "${color.name} 원피스"
+            else -> "${color.name} ${safeCategory.ifBlank { "아이템" }}"
+        }
+        val subtitle = when (safeCategory) {
+            "립" -> "얼굴빛을 살리는 포인트 컬러"
+            "아이" -> "눈매를 흐리지 않는 음영"
+            "베이스" -> "피부 톤을 맑게 정리"
+            "치크" -> "과하지 않은 혈색 보정"
+            else -> "퍼스널 컬러와 잘 맞는 선택"
+        }
+        return ProductRecommendation(
+            category = safeCategory,
+            title = title,
+            subtitle = subtitle,
+            colorHex = color.hex,
+            searchKeywords = listOf(title, safeCategory, "${defaultToneName(season)} $safeCategory").distinct(),
+        )
+    }
+
+    private fun makeupColorFor(category: String, subtype: String): ColorItem? {
+        val colors = when {
+            subtype.startsWith("spring") -> mapOf(
+                "립" to ColorItem("#FF8F70", "코랄"),
+                "아이" to ColorItem("#F6D365", "샴페인"),
+                "베이스" to ColorItem("#FFF1C7", "아이보리"),
+                "치크" to ColorItem("#FFB7A8", "라이트 코랄"),
+            )
+            subtype.startsWith("summer") -> mapOf(
+                "립" to ColorItem("#D7A7B5", "로즈"),
+                "아이" to ColorItem("#9D8497", "모브"),
+                "베이스" to ColorItem("#F3D4DE", "핑크"),
+                "치크" to ColorItem("#D7A7B5", "더스티 핑크"),
+            )
+            subtype.startsWith("autumn") -> mapOf(
+                "립" to ColorItem("#A45A2A", "브릭"),
+                "아이" to ColorItem("#C18A4A", "카멜"),
+                "베이스" to ColorItem("#E9C8A8", "웜 아이보리"),
+                "치크" to ColorItem("#D8B58A", "베이지"),
+            )
+            subtype == "winter-deep" -> mapOf(
+                "립" to ColorItem("#5B1A1F", "딥 베리"),
+                "아이" to ColorItem("#111827", "차콜"),
+                "베이스" to ColorItem("#F2C2D1", "핑크"),
+                "치크" to ColorItem("#B85C7B", "쿨 로즈"),
+            )
+            else -> mapOf(
+                "립" to ColorItem("#B85C7B", "쿨 로즈"),
+                "아이" to ColorItem("#6B7280", "그레이 브라운"),
+                "베이스" to ColorItem("#F2C2D1", "핑크"),
+                "치크" to ColorItem("#B85C7B", "쿨 로즈"),
+            )
+        }
+        return colors[category]
+    }
+
+    private fun normalizedRecommendationCategory(rawCategory: String, defaultCategory: String, title: String): String {
+        val raw = rawCategory.trim().lowercase()
+        val fallback = defaultCategory.trim()
+        val text = "$rawCategory $defaultCategory $title"
+        return when {
+            text.contains("립") || raw in setOf("lip", "lips", "tint") -> "립"
+            text.contains("아이") || text.contains("섀도") || text.contains("섀도우") || raw in setOf("eye", "shadow", "eyeshadow") -> "아이"
+            text.contains("베이스") || text.contains("파운데이션") || text.contains("쿠션") || raw in setOf("base", "foundation", "cushion") -> "베이스"
+            text.contains("치크") || text.contains("블러셔") || raw in setOf("cheek", "blush") -> "치크"
+            raw in setOf("top", "shirt", "blouse") -> "상의"
+            raw in setOf("outer", "jacket", "coat") -> "아우터"
+            raw in setOf("dress", "onepiece") -> "원피스"
+            raw in setOf("bottom", "pants", "skirt") -> "하의"
+            fallback.isNotBlank() && !fallback.isGenericRecommendationTitle() -> fallback
+            else -> "추천"
+        }
+    }
+
+    private fun String.isGenericRecommendationTitle(): Boolean {
+        val text = trim()
+        return text.isBlank() ||
+            text in setOf("추천", "추천 아이템", "아이템", "제품", "상품", "메이크업", "컬러", "팔레트") ||
+            text.endsWith("추천 아이템")
+    }
+
+    private fun defaultColorName(hex: String, fallback: String): String =
+        when (hex.uppercase()) {
+            "#FF8F70", "#FF6F61", "#FFB7A8" -> "코랄"
+            "#D7A7B5", "#B85C7B", "#F3D4DE" -> "로즈"
+            "#9D8497", "#C9B8E8", "#E8DFF5" -> "모브"
+            "#A45A2A", "#8A4B2F" -> "브릭"
+            "#5B1A1F", "#722F37" -> "버건디"
+            "#1B2A4E", "#0B1026" -> "네이비"
+            "#111827" -> "차콜"
+            else -> fallback
+        }
 
     private val allowedSubtypes = setOf(
         "spring-light",
@@ -311,6 +571,8 @@ class GeminiPersonalColorService(
         "winter-cool",
         "winter-deep",
     )
+
+    private val MakeupCategories = listOf("립", "아이", "베이스", "치크")
 
     private val prompt = """
         Return ONLY one valid JSON object. Do not use markdown fences.
@@ -332,9 +594,14 @@ class GeminiPersonalColorService(
         autumn-soft, autumn-warm, autumn-deep, winter-bright, winter-cool, winter-deep.
 
         quality = {"label": string, "warnings": string[]}.
+        palette MUST contain 6 distinct recommended colors with valid hex values and practical Korean names.
+        Use a varied palette for the diagnosed subtype: include one best color, 3-4 supporting colors, and 1 light/neutral accent. Do not repeat the same hex or same color family four times.
+        avoidColors MUST contain 3-4 distinct colors that are actually risky for the subtype.
         palette and avoidColors are arrays of {"hex":"#RRGGBB","name":string,"role":"best|palette|avoid","reason":string}.
-        outfit is an array of {"category":string,"title":string,"subtitle":string,"colorHex":"#RRGGBB","reason":string}.
-        makeup is an object with keys "립", "아이", "베이스", "치크", each array with one item object using the same product fields.
-        Use practical Korean labels for clothes, makeup, and productKeywords.
+        outfit is an array of 3-5 objects {"category":string,"title":string,"subtitle":string,"colorHex":"#RRGGBB","reason":string}.
+        makeup MUST be an object with exactly these keys: "립", "아이", "베이스", "치크".
+        Each makeup key MUST contain at least one concrete item. Titles must be specific Korean product/color names such as "딥 베리 립", "차콜 브라운 섀도", "핑크 톤업 베이스", "쿨 로즈 치크"; never use generic titles like "추천 아이템", "메이크업", or "제품".
+        The four makeup colorHex values should be harmonious but visually distinguishable for lip, eye, base, and cheek.
+        Use practical Korean labels for clothes, makeup, and productKeywords. productKeywords must include separate search terms for lip, eye shadow, base/cushion, cheek, and outfit.
     """.trimIndent()
 }

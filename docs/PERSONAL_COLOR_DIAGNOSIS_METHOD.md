@@ -80,11 +80,21 @@ Gemini는 JSON only로 다음 필드를 반환해야 한다.
   ],
   "summary": "부드러운 라벤더와 로즈 계열이 안정적인 타입입니다.",
   "signature": "라벤더, 더스티 로즈, 파우더 블루를 우선 추천합니다.",
-  "palette": [{ "hex": "#C9B8E8", "name": "라벤더", "role": "best" }],
+  "palette": [
+    { "hex": "#C9B8E8", "name": "라벤더", "role": "best" },
+    { "hex": "#D7A7B5", "name": "더스티 로즈", "role": "palette" },
+    { "hex": "#AEC6E8", "name": "파우더 블루", "role": "palette" },
+    { "hex": "#9D8497", "name": "모브", "role": "palette" },
+    { "hex": "#F3D4DE", "name": "소프트 핑크", "role": "palette" },
+    { "hex": "#6B7280", "name": "소프트 그레이", "role": "palette" }
+  ],
   "avoidColors": [{ "hex": "#D9A05B", "name": "머스터드", "role": "avoid" }],
   "outfit": [{ "category": "상의", "title": "라벤더 니트", "subtitle": "부드러운 쿨톤 포인트", "colorHex": "#C9B8E8" }],
   "makeup": {
-    "립": [{ "category": "립", "title": "소프트 로즈 립", "subtitle": "차분한 장미빛", "colorHex": "#D7A7B5" }]
+    "립": [{ "category": "립", "title": "소프트 로즈 립", "subtitle": "차분한 장미빛", "colorHex": "#D7A7B5" }],
+    "아이": [{ "category": "아이", "title": "모브 섀도", "subtitle": "부드러운 음영", "colorHex": "#9D8497" }],
+    "베이스": [{ "category": "베이스", "title": "핑크 톤업 베이스", "subtitle": "맑은 보정", "colorHex": "#F3D4DE" }],
+    "치크": [{ "category": "치크", "title": "쿨 핑크 치크", "subtitle": "은은한 혈색", "colorHex": "#D7A7B5" }]
   },
   "features": ["차가운 온도감", "부드러운 대비"],
   "productKeywords": ["여름쿨톤 립", "라벤더 니트", "쿨톤 블러셔"],
@@ -99,6 +109,8 @@ Gemini는 JSON only로 다음 필드를 반환해야 한다.
 - 의상/메이크업/특징 데이터는 12타입 템플릿을 기본값으로 사용한다.
 - 상품 검색은 프로덕션에서 backend proxy가 담당한다.
 - Naver Shopping Search API는 공식 검색 API이며, 문서상 하루 호출 한도 25,000회를 가진다.
+- Result 의상/메이크업 탭은 로컬 진단 색을 짧게 요약한 뒤, backend 상품이 있으면 AI 추천과 추천 상품을 먼저 보여주고, 상세 팔레트/파트별 적용은 하단 최종 분석으로 제공한다.
+- 메이크업 추천은 `립`, `아이`, `베이스`, `치크` 네 역할을 분리하고, 상품 backend는 네 역할이 한쪽으로 몰리지 않게 병합/정렬한다.
 - Coupang Partners는 접근 권한이 필요하므로 credential-ready adapter와 seed fallback만 준비한다.
 - Android 앱은 API 실패나 인터넷 부재를 사용자에게 오류처럼 보이지 않게 처리하고, curated JSON 템플릿을 표시한다.
 

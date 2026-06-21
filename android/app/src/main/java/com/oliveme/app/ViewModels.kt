@@ -11,6 +11,7 @@ import com.oliveme.app.data.repository.AppGraph
 import com.oliveme.app.data.repository.CommerceRecommendationSection
 import com.oliveme.app.data.repository.OliveStore
 import com.oliveme.app.data.repository.PersonalColorResult
+import com.oliveme.app.data.repository.ProductRecommendation
 import com.oliveme.app.data.repository.UserProfile
 import com.oliveme.app.ml.DigitRecognizer
 import com.oliveme.app.util.ImageBytesLoader
@@ -323,12 +324,51 @@ class ResultViewModel : ViewModel() {
 }
 
 private fun PersonalColorResult.commerceKeywords(kind: String): List<String> {
-    val base = when (kind) {
-        "의상" -> clothes.flatMap { it.searchKeywords + listOf(it.title, it.category) }
-        else -> makeup.values.flatten().flatMap { it.searchKeywords + listOf(it.title, it.category) }
+    val isMakeup = kind == "메이크업"
+    val base = if (isMakeup) {
+        makeup.values.flatten().flatMap { it.commerceKeywordCandidates(kind) }
+    } else {
+        clothes.flatMap { it.commerceKeywordCandidates(kind) } + productKeywords.filterNot { it.looksLikeMakeupKeyword() }
     }
-    return (base + productKeywords + listOf(type, subtype, "$type $kind")).map { it.trim() }.filter { it.isNotBlank() }
+    val scopedProductKeywords = productKeywords.filter { it.looksLikeMakeupKeyword() == isMakeup }
+    return (base + scopedProductKeywords + listOf("$type $kind", "$subtype $kind"))
+        .map { it.trim() }
+        .filter { it.isNotBlank() }
+        .distinct()
+        .take(18)
 }
+
+private fun ProductRecommendation.commerceKeywordCandidates(kind: String): List<String> {
+    val cleanTitle = title.trim()
+    val cleanCategory = category.trim()
+    val intent = if (kind == "메이크업") cleanCategory.makeupSearchIntent() else cleanCategory.ifBlank { kind }
+    return if (kind == "메이크업") {
+        searchKeywords + listOf(
+            "$cleanTitle $intent",
+            "$cleanTitle 메이크업",
+            "$intent 퍼스널컬러",
+        )
+    } else {
+        searchKeywords + listOf(
+            "$cleanTitle $cleanCategory",
+            "$cleanTitle 의상",
+            "$cleanCategory 퍼스널컬러",
+        )
+    }
+}
+
+private fun String.makeupSearchIntent(): String =
+    when {
+        contains("립") -> "립"
+        contains("아이") || contains("섀도") -> "아이섀도우"
+        contains("치크") -> "블러셔"
+        contains("베이스") || contains("쿠션") || contains("파운데이션") -> "쿠션 파운데이션"
+        else -> "메이크업"
+    }
+
+private fun String.looksLikeMakeupKeyword(): Boolean =
+    listOf("립", "틴트", "섀도", "아이섀도", "치크", "블러셔", "베이스", "쿠션", "파운데이션", "메이크업")
+        .any { contains(it, ignoreCase = true) }
 
 data class MainUiState(
     val recent: DiagnosisHistoryEntity? = null,
@@ -363,6 +403,12 @@ data class MapUiState(
     val locationLabel: String = "현재 위치 확인 중",
     val centerLat: Double = 37.5665,
     val centerLng: Double = 126.9780,
+    val loadedZoom: Int = 16,
+    val viewportLat: Double? = null,
+    val viewportLng: Double? = null,
+    val viewportZoom: Int = 16,
+    val canRefreshVisibleRegion: Boolean = false,
+    val loading: Boolean = false,
     val activeFilter: String = "전체",
     val favoriteIds: Set<String> = emptySet(),
 )
@@ -370,22 +416,86 @@ data class MapUiState(
 class MapViewModel : ViewModel() {
     private val _state = MutableStateFlow(MapUiState())
     val state: StateFlow<MapUiState> = _state.asStateFlow()
+    private var storeRequestSerial = 0
 
-    fun loadStores(userId: String = UiText.DEMO_USER_ID, x: Double? = null, y: Double? = null) {
+    fun beginLocationLookup() {
+        val state = _state.value
+        if (state.loading && state.stores.isEmpty() && state.locationLabel == "현재 위치 확인 중") return
+        storeRequestSerial += 1
+        _state.value = state.copy(
+            loading = true,
+            fallbackReason = null,
+            locationLabel = if (state.stores.isEmpty()) "현재 위치 확인 중" else state.locationLabel,
+            canRefreshVisibleRegion = false,
+        )
+    }
+
+    fun loadStores(userId: String = UiText.DEMO_USER_ID, x: Double? = null, y: Double? = null, zoom: Int = 16, locationLabelOverride: String? = null) {
         viewModelScope.launch {
+            val requestId = ++storeRequestSerial
+            val previous = _state.value
+            _state.value = previous.copy(loading = true)
             val (searchX, searchY) = normalizedMapCoordinates(x, y)
-            val stores = withContext(Dispatchers.IO) { AppGraph.storeRepository.nearbyOliveYoung(searchX, searchY) }
+            val searchRadius = radiusForMapZoom(zoom)
+            val stores = withContext(Dispatchers.IO) { AppGraph.storeRepository.nearbyOliveYoung(searchX, searchY, searchRadius, maxResults = MapSearchMaxResults) }
             val favorites = withContext(Dispatchers.IO) { AppGraph.storeRepository.favorites(userId).map { it.id }.toSet() }
+            if (requestId != storeRequestSerial) return@launch
+            val selected = stores.firstOrNull { it.id == previous.selected?.id } ?: stores.firstOrNull()
             _state.value = MapUiState(
                 stores = stores,
-                selected = stores.firstOrNull(),
+                selected = selected,
                 fallbackReason = if (searchX == null || searchY == null) "현재 위치 대신 부산대 기준 매장을 표시합니다." else null,
-                locationLabel = if (searchX == null || searchY == null) "부산대 기준 추천 매장" else "현재 위치 기준 추천 매장",
+                locationLabel = locationLabelOverride ?: if (searchX == null || searchY == null) "부산대 기준 추천 매장" else "현재 위치 기준 추천 매장",
                 centerLat = searchY ?: 35.2310,
                 centerLng = searchX ?: 129.0842,
+                loadedZoom = zoom.coerceIn(MapMinZoom, MapMaxZoom),
+                viewportZoom = zoom.coerceIn(MapMinZoom, MapMaxZoom),
+                activeFilter = previous.activeFilter,
                 favoriteIds = favorites,
             )
         }
+    }
+
+    fun updateViewport(lat: Double, lng: Double, zoom: Int) {
+        if (!java.lang.Double.isFinite(lat) || !java.lang.Double.isFinite(lng)) return
+        val state = _state.value
+        val safeZoom = zoom.coerceIn(MapMinZoom, MapMaxZoom)
+        val movedMeters = distanceMeters(state.centerLat, state.centerLng, lat, lng)
+        val radiusChanged = radiusForMapZoom(state.loadedZoom) != radiusForMapZoom(safeZoom)
+        val shouldRefresh = movedMeters > 250.0 || radiusChanged
+        val previousViewportLat = state.viewportLat
+        val previousViewportLng = state.viewportLng
+        val viewportMovedMeters = if (previousViewportLat != null && previousViewportLng != null) {
+            distanceMeters(previousViewportLat, previousViewportLng, lat, lng)
+        } else {
+            Double.MAX_VALUE
+        }
+        if (
+            state.viewportZoom == safeZoom &&
+            state.canRefreshVisibleRegion == shouldRefresh &&
+            viewportMovedMeters < 25.0
+        ) {
+            return
+        }
+        _state.value = state.copy(
+            viewportLat = lat,
+            viewportLng = lng,
+            viewportZoom = safeZoom,
+            canRefreshVisibleRegion = shouldRefresh,
+        )
+    }
+
+    fun refreshVisibleRegion(userId: String = UiText.DEMO_USER_ID) {
+        val state = _state.value
+        val lat = state.viewportLat ?: state.centerLat
+        val lng = state.viewportLng ?: state.centerLng
+        loadStores(
+            userId = userId,
+            x = lng,
+            y = lat,
+            zoom = state.viewportZoom,
+            locationLabelOverride = "지도 영역 기준 추천 매장",
+        )
     }
 
     fun select(store: OliveStore) {
@@ -416,6 +526,31 @@ class MapViewModel : ViewModel() {
         } else {
             x to y
         }
+    }
+
+    private fun radiusForMapZoom(zoom: Int): Int =
+        when {
+            zoom >= 16 -> 2_000
+            zoom == 15 -> 5_000
+            else -> 10_000
+        }
+
+    private companion object {
+        const val MapMinZoom = 14
+        const val MapMaxZoom = 20
+        const val MapSearchMaxResults = 45
+    }
+
+    private fun distanceMeters(fromLat: Double, fromLng: Double, toLat: Double, toLng: Double): Double {
+        val earthRadius = 6_371_000.0
+        val dLat = Math.toRadians(toLat - fromLat)
+        val dLng = Math.toRadians(toLng - fromLng)
+        val startLat = Math.toRadians(fromLat)
+        val endLat = Math.toRadians(toLat)
+        val a = kotlin.math.sin(dLat / 2) * kotlin.math.sin(dLat / 2) +
+            kotlin.math.cos(startLat) * kotlin.math.cos(endLat) *
+            kotlin.math.sin(dLng / 2) * kotlin.math.sin(dLng / 2)
+        return earthRadius * 2 * kotlin.math.atan2(kotlin.math.sqrt(a), kotlin.math.sqrt(1 - a))
     }
 }
 

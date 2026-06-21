@@ -25,6 +25,7 @@ interface KakaoLocalApiService {
         @Query("y") y: Double?,
         @Query("radius") radius: Int = 20000,
         @Query("size") size: Int = 15,
+        @Query("page") page: Int = 1,
         @Query("sort") sort: String = "distance",
     ): KakaoKeywordSearchResponse
 }

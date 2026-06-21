@@ -37,6 +37,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -155,7 +156,16 @@ fun AppTopBar(
                 variant = OliveLogoVariant.Inline,
             )
         } else {
-            Text(title, fontWeight = FontWeight.Bold, color = OliveText, fontSize = 20.sp)
+            Text(
+                title,
+                modifier = Modifier.weight(1f),
+                textAlign = TextAlign.Center,
+                fontWeight = FontWeight.Bold,
+                color = OliveText,
+                fontSize = 20.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
         if (actionIcon != null) {
             IconButton(
@@ -206,7 +216,7 @@ fun OliveButton(text: String, modifier: Modifier = Modifier, enabled: Boolean = 
         colors = ButtonDefaults.buttonColors(containerColor = OlivePrimaryDeep, contentColor = OliveCard),
         elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
     ) {
-        Text(text, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+        Text(text, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -221,7 +231,7 @@ fun KakaoButton(text: String, modifier: Modifier = Modifier, enabled: Boolean = 
         shape = RoundedCornerShape(12.dp),
         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFEE500), contentColor = Color(0xFF181600)),
     ) {
-        Text(text, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+        Text(text, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -236,7 +246,7 @@ fun SecondaryButton(text: String, modifier: Modifier = Modifier, onClick: () -> 
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text, color = OliveText, fontWeight = FontWeight.SemiBold)
+        Text(text, color = OliveText, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -245,6 +255,7 @@ fun Pill(text: String, selected: Boolean = false, onClick: (() -> Unit)? = null)
     Text(
         text = text,
         modifier = Modifier
+            .heightIn(min = 36.dp)
             .background(if (selected) OlivePrimary else OlivePrimarySoft, RoundedCornerShape(50))
             .border(1.dp, if (selected) OlivePrimaryDeep else Color.Transparent, RoundedCornerShape(50))
             .clickable(enabled = onClick != null) { onClick?.invoke() }
@@ -252,6 +263,9 @@ fun Pill(text: String, selected: Boolean = false, onClick: (() -> Unit)? = null)
         color = if (selected) Color.White else OlivePrimaryDeep,
         fontSize = 12.sp,
         fontWeight = FontWeight.Bold,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        softWrap = false,
     )
 }
 
@@ -288,8 +302,8 @@ fun PastelIconTile(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Text(label, color = OliveText, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 2, lineHeight = 17.sp)
-            Text(sub, color = OliveTextDim, fontSize = 10.sp, maxLines = 2, lineHeight = 14.sp)
+            Text(label, color = OliveText, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 2, lineHeight = 17.sp, overflow = TextOverflow.Ellipsis)
+            Text(sub, color = OliveTextDim, fontSize = 10.sp, maxLines = 2, lineHeight = 14.sp, overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -309,7 +323,7 @@ fun SwatchRow(colors: List<ColorItem>, swatchSize: Dp = 42.dp) {
                         .border(2.dp, Color.White, CircleShape),
                 )
                 Spacer(Modifier.height(4.dp))
-                Text(item.name, color = OliveTextDim, fontSize = 10.sp, maxLines = 1)
+                Text(item.name, color = OliveTextDim, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }

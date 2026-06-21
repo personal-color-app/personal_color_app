@@ -108,6 +108,7 @@ object DemoData {
                 "lip" to listOf(ProductRecommendation("lip", "피치 코랄 립", "맑은 혈색 포인트", "#FF8F70")),
                 "eye" to listOf(ProductRecommendation("eye", "샴페인 섀도", "은은한 따뜻한 펄", "#F6D365")),
                 "base" to listOf(ProductRecommendation("base", "아이보리 베이스", "노란기 없이 맑게", "#FFF1C7")),
+                "cheek" to listOf(ProductRecommendation("cheek", "코랄 치크", "밝은 웜 혈색", "#FFB7A8")),
             ),
             traits = listOf("밝은 명도", "따뜻한 혈색", "맑은 채도"),
             keywords = listOf("Warm", "Light", "Clear", "Peach"),
@@ -142,6 +143,7 @@ object DemoData {
                 "lip" to listOf(ProductRecommendation("lip", "소프트 로즈 립", "차분한 장미빛", "#D7A7B5")),
                 "eye" to listOf(ProductRecommendation("eye", "모브 브라운 섀도", "탁하지 않은 음영", "#9D8497")),
                 "base" to listOf(ProductRecommendation("base", "핑크 톤업 베이스", "맑은 쿨톤 보정", "#F3D4DE")),
+                "cheek" to listOf(ProductRecommendation("cheek", "쿨 핑크 치크", "은은한 혈색", "#D7A7B5")),
             ),
             traits = listOf("차가운 온도감", "부드러운 대비", "은은한 채도"),
             keywords = listOf("Cool", "Soft", "Rose", "Lavender"),
@@ -176,6 +178,7 @@ object DemoData {
                 "lip" to listOf(ProductRecommendation("lip", "브릭 로즈 립", "따뜻한 깊이", "#A45A2A")),
                 "eye" to listOf(ProductRecommendation("eye", "카멜 브라운 섀도", "고급스러운 음영", "#C18A4A")),
                 "base" to listOf(ProductRecommendation("base", "웜 아이보리 베이스", "자연스러운 피부결", "#E9C8A8")),
+                "cheek" to listOf(ProductRecommendation("cheek", "베이지 치크", "차분한 온도감", "#D8B58A")),
             ),
             traits = listOf("따뜻한 온도감", "깊은 명도", "차분한 채도"),
             keywords = listOf("Warm", "Deep", "Earthy", "Brick"),
@@ -189,11 +192,11 @@ object DemoData {
             signature = "버건디, 네이비, 플럼처럼 깊고 차가운 색이 가장 안정적입니다.",
         palette = listOf(
             ColorItem("#722F37", "와인"),
-            ColorItem("#5B1A1F", "버건디"),
-            ColorItem("#4A2347", "플럼"),
             ColorItem("#1B2A4E", "네이비"),
+            ColorItem("#4A2347", "플럼"),
             ColorItem("#C13584", "푸시아"),
-            ColorItem("#F2C2D1", "아이스 핑크"),
+            ColorItem("#B7C7D9", "아이스 블루"),
+            ColorItem("#D8DEE9", "실버 그레이"),
         ),
         avoidColors = listOf(
             ColorItem("#D9A05B", "머스터드", "avoid"),
@@ -217,6 +220,9 @@ object DemoData {
             ),
             "base" to listOf(
                 ProductRecommendation("base", "핑크 베이스", "붉은기보다 맑은기 보정", "#F2C2D1"),
+            ),
+            "cheek" to listOf(
+                ProductRecommendation("cheek", "쿨 핑크 치크", "차가운 혈색", "#D7A7B5"),
             ),
         ),
         traits = listOf("선명한 대비", "차가운 저채도보다 딥 컬러 선호", "노란기보다 푸른기 안정"),
