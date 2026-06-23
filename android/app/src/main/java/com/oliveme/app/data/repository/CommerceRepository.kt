@@ -9,63 +9,41 @@ import java.text.NumberFormat
 import java.util.Locale
 
 class CommerceRepository(
-    private val backend: BackendApiService?,
+    private val backends: List<BackendApiService>,
 ) {
+    constructor(backend: BackendApiService?) : this(listOfNotNull(backend))
+
     suspend fun recommendProducts(
         result: PersonalColorResult,
         category: String,
         keywords: List<String>,
         display: Int = 8,
     ): CommerceRecommendationSection {
-        val api = backend ?: return CommerceRecommendationSection()
+        if (backends.isEmpty()) return CommerceRecommendationSection(
+            fallbackReason = CommerceFallbackReason.BackendUnavailable,
+        )
         val usableKeywords = keywords.map { it.trim() }.filter { it.isNotBlank() }
-        if (usableKeywords.isEmpty()) return CommerceRecommendationSection()
+        if (usableKeywords.isEmpty()) {
+            return CommerceRecommendationSection(fallbackReason = CommerceFallbackReason.EmptyProducts)
+        }
 
-        return runCatching {
-            val response = api.recommendProducts(
-                BackendProductRecommendationRequest(
-                    type = result.type,
-                    season = result.season,
-                    subtype = result.subtype,
-                    category = category,
-                    keywords = usableKeywords,
-                    palette = result.palette.map { BackendColorItem(it.hex, it.name, it.role) },
-                    avoidColors = result.avoidColors.map { BackendColorItem(it.hex, it.name, it.role) },
-                    display = display,
-                ),
-            )
-            if (response.source != "naver-shopping") return@runCatching CommerceRecommendationSection()
-            Log.d(Tag, "commerce recommendation loaded category=$category products=${response.items.size} ai=${response.aiSummary != null}")
-            val products = response.items
-                .mapIndexedNotNull { index, item -> item.toCommerceProduct(index + 1) }
-                .take(display)
-            CommerceRecommendationSection(
-                ai = response.aiSummary?.let { summary ->
-                    val picks = summary.picks
-                        .mapNotNull { pick ->
-                            products.firstOrNull { it.rank == pick.rank }?.let { product ->
-                                CommerceAiProductPick(
-                                    product = product,
-                                    reason = pick.reason.ifBlank { "리포트 팔레트와 잘 맞는 후보입니다." },
-                                )
-                            }
-                        }
-                    CommerceAiRecommendation(
-                        headline = summary.headline,
-                        summary = summary.summary,
-                        bullets = summary.bullets,
-                        picks = picks,
-                    )
-                }?.takeIf { it.headline.isNotBlank() || it.summary.isNotBlank() || it.bullets.isNotEmpty() || it.picks.isNotEmpty() },
-                products = products,
-            )
-        }.onFailure { error ->
-            Log.d(Tag, "commerce recommendation skipped category=$category reason=${error.javaClass.simpleName}")
-        }.getOrDefault(CommerceRecommendationSection())
+        var lastEmpty: CommerceRecommendationSection? = null
+        backends.forEachIndexed { index, api ->
+            val section = runCatching {
+                recommendProducts(api, result, category, usableKeywords, display)
+            }.onFailure { error ->
+                logDebug("commerce recommendation skipped category=$category backend=$index reason=${error.javaClass.simpleName}")
+            }.getOrNull() ?: return@forEachIndexed
+            if (section.fallbackReason == CommerceFallbackReason.ProductApiQuota || section.products.isNotEmpty()) {
+                return section
+            }
+            lastEmpty = section
+        }
+        return lastEmpty ?: CommerceRecommendationSection(fallbackReason = CommerceFallbackReason.BackendUnavailable)
     }
 
     suspend fun searchProducts(keywords: List<String>, display: Int = 4): List<CommerceProductRecommendation> {
-        val api = backend ?: return emptyList()
+        val api = backends.firstOrNull() ?: return emptyList()
         val query = keywords
             .map { it.trim() }
             .firstOrNull { it.isNotBlank() }
@@ -73,15 +51,70 @@ class CommerceRepository(
 
         return runCatching {
             val response = api.searchProducts(query = query, display = display)
-            if (response.source != "naver-shopping") return@runCatching emptyList()
+            if (response.upstreamStatus == 429) return@runCatching emptyList()
             response.items
-                .mapIndexedNotNull { index, item -> item.toCommerceProduct(index + 1) }
+                .mapIndexedNotNull { index, item -> item.toCommerceProduct(index + 1, response.source) }
                 .take(display)
                 .toList()
         }.getOrDefault(emptyList())
     }
 
-    private fun BackendProductItem.toCommerceProduct(rank: Int): CommerceProductRecommendation? {
+    private suspend fun recommendProducts(
+        api: BackendApiService,
+        result: PersonalColorResult,
+        category: String,
+        usableKeywords: List<String>,
+        display: Int,
+    ): CommerceRecommendationSection {
+        val response = api.recommendProducts(
+            BackendProductRecommendationRequest(
+                type = result.type,
+                season = result.season,
+                subtype = result.subtype,
+                category = category,
+                keywords = usableKeywords,
+                palette = result.palette.map { BackendColorItem(it.hex, it.name, it.role) },
+                avoidColors = result.avoidColors.map { BackendColorItem(it.hex, it.name, it.role) },
+                display = display,
+            ),
+        )
+        if (response.isProductQuotaExhausted()) {
+            return CommerceRecommendationSection(
+                fallbackReason = CommerceFallbackReason.ProductApiQuota,
+            )
+        }
+        logDebug("commerce recommendation loaded category=$category products=${response.items.size} ai=${response.aiSummary != null}")
+        val products = response.items
+            .mapIndexedNotNull { index, item -> item.toCommerceProduct(index + 1, response.source) }
+            .take(display)
+        if (products.isEmpty()) {
+            return CommerceRecommendationSection(
+                fallbackReason = CommerceFallbackReason.EmptyProducts,
+            )
+        }
+        return CommerceRecommendationSection(
+            ai = response.aiSummary?.let { summary ->
+                val picks = summary.picks
+                    .mapNotNull { pick ->
+                        products.firstOrNull { it.rank == pick.rank }?.let { product ->
+                            CommerceAiProductPick(
+                                product = product,
+                                reason = pick.reason.ifBlank { "리포트 팔레트와 잘 맞는 후보입니다." },
+                            )
+                        }
+                    }
+                CommerceAiRecommendation(
+                    headline = summary.headline,
+                    summary = summary.summary,
+                    bullets = summary.bullets,
+                    picks = picks,
+                )
+            }?.takeIf { it.headline.isNotBlank() || it.summary.isNotBlank() || it.bullets.isNotEmpty() || it.picks.isNotEmpty() },
+            products = products,
+        )
+    }
+
+    private fun BackendProductItem.toCommerceProduct(rank: Int, source: String): CommerceProductRecommendation? {
         val cleanTitle = title.trim()
         val cleanImage = image.trim()
         if (cleanTitle.isBlank() || link.isBlank() || cleanImage.isBlank()) return null
@@ -98,12 +131,20 @@ class CommerceRepository(
             imageUrl = cleanImage,
             linkUrl = link,
             rank = rank,
+            source = source.ifBlank { "backend" },
         )
     }
+
+    private fun com.oliveme.app.data.remote.BackendProductRecommendationResponse.isProductQuotaExhausted(): Boolean =
+        upstreamStatus == 429 || fallbackReason.equals("quota-exhausted", ignoreCase = true)
 
     private fun priceLabel(raw: String): String {
         val price = raw.filter { it.isDigit() }.toLongOrNull() ?: return ""
         return NumberFormat.getNumberInstance(Locale.KOREA).format(price) + "원"
+    }
+
+    private fun logDebug(message: String) {
+        runCatching { Log.d(Tag, message) }
     }
 
     private companion object {

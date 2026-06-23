@@ -5,6 +5,7 @@ import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.net.URI
 import java.util.concurrent.TimeUnit
 
 object ApiClient {
@@ -45,8 +46,17 @@ object ApiClient {
             .create(KakaoLocalApiService::class.java)
     }
 
+    val backends: List<BackendApiService> by lazy {
+        backendBaseUrlCandidates(BuildConfig.BACKEND_BASE_URL).mapNotNull { baseUrl ->
+            createBackend(baseUrl)
+        }
+    }
+
     val backend: BackendApiService? by lazy {
-        val baseUrl = normalizedBackendUrl() ?: return@lazy null
+        backends.firstOrNull()
+    }
+
+    private fun createBackend(baseUrl: String): BackendApiService? =
         runCatching {
             Retrofit.Builder()
                 .baseUrl(baseUrl)
@@ -55,12 +65,34 @@ object ApiClient {
                 .build()
                 .create(BackendApiService::class.java)
         }.getOrNull()
-    }
-
-    private fun normalizedBackendUrl(): String? {
-        val raw = BuildConfig.BACKEND_BASE_URL.trim()
-        if (raw.isBlank()) return null
-        val withSlash = if (raw.endsWith("/")) raw else "$raw/"
-        return withSlash.takeIf { it.startsWith("http://") || it.startsWith("https://") }
-    }
 }
+
+internal fun backendBaseUrlCandidates(raw: String): List<String> {
+    val primary = normalizedBackendUrl(raw) ?: return emptyList()
+    val candidates = linkedSetOf(primary)
+    loopbackBackendUrlForEmulator(primary)?.let(candidates::add)
+    return candidates.toList()
+}
+
+private fun normalizedBackendUrl(raw: String): String? {
+    val trimmed = raw.trim()
+    if (trimmed.isBlank()) return null
+    val withSlash = if (trimmed.endsWith("/")) trimmed else "$trimmed/"
+    return withSlash.takeIf { it.startsWith("http://") || it.startsWith("https://") }
+}
+
+private fun loopbackBackendUrlForEmulator(baseUrl: String): String? =
+    runCatching {
+        val uri = URI(baseUrl)
+        val host = uri.host?.lowercase() ?: return@runCatching null
+        if (host !in setOf("127.0.0.1", "localhost")) return@runCatching null
+        URI(
+            uri.scheme,
+            uri.userInfo,
+            "10.0.2.2",
+            uri.port,
+            uri.path.takeIf { it.isNotBlank() } ?: "/",
+            null,
+            null,
+        ).toString().let { if (it.endsWith("/")) it else "$it/" }
+    }.getOrNull()

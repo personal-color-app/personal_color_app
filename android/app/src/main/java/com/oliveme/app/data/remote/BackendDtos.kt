@@ -28,6 +28,8 @@ data class BackendProductRecommendationResponse(
     val source: String = "",
     val aiSummary: BackendAiRecommendationSummary? = null,
     val total: Int? = null,
+    val upstreamStatus: Int? = null,
+    val fallbackReason: String = "",
     val items: List<BackendProductItem> = emptyList(),
 )
 
