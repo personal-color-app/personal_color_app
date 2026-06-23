@@ -45,7 +45,7 @@ object AppGraph {
                 policyRepository = diagnosisPolicyRepository,
             )
             storeRepository = StoreRepository(dao, ApiClient.kakaoLocal, seedContentRepository)
-            commerceRepository = CommerceRepository(ApiClient.backend)
+            commerceRepository = CommerceRepository(ApiClient.backends)
             initialized = true
         }
     }

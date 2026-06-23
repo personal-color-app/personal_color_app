@@ -12,12 +12,18 @@ const geminiModel = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const geminiApiKey = process.env.GEMINI_API_KEY || "";
 const naverClientId = process.env.NAVER_CLIENT_ID || "";
 const naverClientSecret = process.env.NAVER_CLIENT_SECRET || process.env.NAVER_SECRET || "";
+const quotaFallbackReason = "quota-exhausted";
+const productFaultHeader = "x-oliveme-product-fault";
+const productFaultModes = new Set(["quota", "empty", "error"]);
 
 const curatedProducts = [
   { category: "상의", title: "라벤더 니트", subtitle: "여름 쿨톤용 부드러운 상의", colorHex: "#C9B8E8", searchKeywords: ["라벤더 니트", "여름쿨톤 상의"] },
   { category: "아우터", title: "네이비 재킷", subtitle: "겨울 쿨톤 대비를 정리하는 아우터", colorHex: "#1B2A4E", searchKeywords: ["네이비 재킷", "겨울쿨톤 아우터"] },
+  { category: "원피스", title: "버건디 원피스", subtitle: "겨울 딥톤의 선명한 포인트", colorHex: "#5B1A1F", searchKeywords: ["버건디 원피스", "겨울딥 원피스"] },
   { category: "립", title: "쿨 로즈 립", subtitle: "차분한 쿨톤 혈색", colorHex: "#B85C7B", searchKeywords: ["쿨톤 립", "로즈 립"] },
   { category: "아이", title: "모브 브라운 섀도", subtitle: "부드러운 쿨톤 음영", colorHex: "#9D8497", searchKeywords: ["모브 섀도", "쿨톤 섀도"] },
+  { category: "베이스", title: "핑크 톤업 베이스", subtitle: "차가운 피부 표현을 맑게 보정", colorHex: "#F3D4DE", searchKeywords: ["핑크 톤업 베이스", "쿨톤 베이스"] },
+  { category: "치크", title: "쿨 핑크 치크", subtitle: "은은하게 이어지는 쿨톤 혈색", colorHex: "#D7A7B5", searchKeywords: ["쿨톤 치크", "핑크 블러셔"] },
 ];
 
 app.use(express.json({ limit: "18mb" }));
@@ -112,11 +118,12 @@ app.get("/v1/products/search", async (req, res) => {
   const query = String(req.query.query || "").trim();
   const category = String(req.query.category || "").trim();
   const display = Math.min(Math.max(Number(req.query.display || 10), 1), 20);
+  const faultMode = productFaultMode(req);
   if (!query && !category) {
-    return res.json({ source: "curated", items: curatedProducts.slice(0, display) });
+    return res.json({ source: "curated", items: curatedProductItems(display, category) });
   }
 
-  const result = await searchNaverProducts(query || category, display, category);
+  const result = await searchNaverProducts(query || category, display, category, faultMode);
   res.json(result);
 });
 
@@ -128,14 +135,32 @@ app.post("/v1/products/recommendations", async (req, res) => {
   const type = String(body.type || "").trim();
   const season = String(body.season || "").trim();
   const queryCandidates = productQueryCandidates({ keywords, type, category });
+  const faultMode = productFaultMode(req);
 
   const productResult = isMakeupCategory(category)
-    ? await mergedProductResult(queryCandidates, display, category)
-    : await firstProductResult(queryCandidates, display, category);
-  if (productResult.source !== "naver-shopping" || !Array.isArray(productResult.items) || productResult.items.length === 0) {
+    ? await mergedProductResult(queryCandidates, display, category, faultMode)
+    : await firstProductResult(queryCandidates, display, category, faultMode);
+
+  const isQuota = productResult.upstreamStatus === 429 || productResult.fallbackReason === quotaFallbackReason;
+  if (isQuota) {
     return res.json({
-      source: productResult.source,
+      source: productResult.source || "quota-exhausted",
+      fallbackReason: quotaFallbackReason,
+      upstreamStatus: productResult.upstreamStatus || 429,
       aiSummary: null,
+      total: 0,
+      items: [],
+    });
+  }
+
+  const productItems = Array.isArray(productResult.items) ? productResult.items.slice(0, display) : [];
+  if (productItems.length === 0) {
+    return res.json({
+      source: productResult.source || "empty",
+      fallbackReason: "empty-products",
+      upstreamStatus: productResult.upstreamStatus,
+      aiSummary: null,
+      total: 0,
       items: [],
     });
   }
@@ -148,22 +173,26 @@ app.post("/v1/products/recommendations", async (req, res) => {
     palette: Array.isArray(body.palette) ? body.palette : [],
     avoidColors: Array.isArray(body.avoidColors) ? body.avoidColors : [],
     keywords,
-    items: productResult.items,
+    items: productItems,
   };
-  const aiSummary = await summarizeProducts(summaryContext) || fallbackProductSummary(summaryContext);
+  const aiSummary = productResult.source === "naver-shopping"
+    ? await summarizeProducts(summaryContext) || fallbackProductSummary(summaryContext)
+    : fallbackProductSummary(summaryContext);
 
   res.json({
-    source: "naver-shopping",
+    source: productResult.source || "curated",
+    fallbackReason: productResult.fallbackReason || "",
+    upstreamStatus: productResult.upstreamStatus,
     aiSummary,
     total: productResult.total,
-    items: productResult.items,
+    items: productItems,
   });
 });
 
-async function firstProductResult(queries, display, category = "") {
+async function firstProductResult(queries, display, category = "", faultMode = "") {
   let lastResult = { source: "curated", total: 0, items: [] };
   for (const query of queries) {
-    const result = await searchNaverProducts(query, display, category);
+    const result = await searchNaverProducts(query, display, category, faultMode);
     lastResult = result;
     if (result.source === "naver-shopping" && Array.isArray(result.items) && result.items.length > 0) {
       return result;
@@ -172,14 +201,14 @@ async function firstProductResult(queries, display, category = "") {
   return lastResult;
 }
 
-async function mergedProductResult(queries, display, category = "") {
+async function mergedProductResult(queries, display, category = "", faultMode = "") {
   const merged = [];
   const seen = new Set();
   let total = 0;
   let lastResult = { source: "curated", total: 0, items: [] };
   const needsMakeupCoverage = isMakeupCategory(category);
   for (const query of queries.slice(0, 10)) {
-    const result = await searchNaverProducts(query, Math.min(Math.max(display, 4), 8), category);
+    const result = await searchNaverProducts(query, Math.min(Math.max(display, 4), 8), category, faultMode);
     lastResult = result;
     if (result.source !== "naver-shopping" || !Array.isArray(result.items)) continue;
     total = Math.max(total, Number(result.total || 0));
@@ -283,18 +312,20 @@ function classifyProductFamily(item) {
   return "other";
 }
 
-async function searchNaverProducts(query, display, category = "") {
+async function searchNaverProducts(query, display, category = "", faultMode = "") {
   const safeQuery = String(query || category || "").trim();
+  const faultResult = productFaultResult(faultMode, display, category);
+  if (faultResult) return faultResult;
+
   if (!safeQuery) {
-    return { source: "curated", items: curatedProducts.slice(0, display) };
+    return { source: "curated", fallbackReason: "curated-fallback", items: curatedProductItems(display, category) };
   }
 
   if (!naverClientId || !naverClientSecret) {
     return {
       source: "curated",
-      items: curatedProducts
-        .filter((item) => !category || item.category === category)
-        .slice(0, display),
+      fallbackReason: "curated-fallback",
+      items: curatedProductItems(display, category),
     };
   }
 
@@ -314,7 +345,15 @@ async function searchNaverProducts(query, display, category = "") {
     });
     const data = await upstream.json();
     if (!upstream.ok) {
-      return { source: "curated", upstreamStatus: upstream.status, items: curatedProducts.slice(0, display) };
+      if (upstream.status === 429) {
+        return { source: "quota-exhausted", upstreamStatus: 429, fallbackReason: quotaFallbackReason, items: [] };
+      }
+      return {
+        source: "curated",
+        upstreamStatus: upstream.status,
+        fallbackReason: "curated-fallback",
+        items: curatedProductItems(display, category),
+      };
     }
     const rawItems = (data.items || []).map((item) => ({
       title: stripTags(item.title || ""),
@@ -328,10 +367,98 @@ async function searchNaverProducts(query, display, category = "") {
       category4: item.category4 || "",
     })).filter(isRenderableProduct);
     const items = rawItems.filter((item) => isRelevantProduct(item, category, safeQuery));
+    if (items.length === 0) {
+      return {
+        source: "curated",
+        total: data.total || 0,
+        fallbackReason: "curated-fallback",
+        items: curatedProductItems(display, category),
+      };
+    }
     return { source: "naver-shopping", total: data.total || items.length, items };
   } catch (error) {
-    return { source: "curated", error: "product search fallback", items: curatedProducts.slice(0, display) };
+    return {
+      source: "curated",
+      error: "product search fallback",
+      fallbackReason: "curated-fallback",
+      items: curatedProductItems(display, category),
+    };
   }
+}
+
+function productFaultMode(req) {
+  if (process.env.NODE_ENV !== "test") return "";
+  const rawValue = process.env.OLIVEME_PRODUCT_FAULT
+    || req.get(productFaultHeader)
+    || req.query?.olivemeProductFault
+    || req.body?.olivemeProductFault
+    || req.body?.faultMode
+    || "";
+  const mode = String(rawValue).trim().toLowerCase();
+  return productFaultModes.has(mode) ? mode : "";
+}
+
+function productFaultResult(mode, display, category = "") {
+  if (!mode) return null;
+  if (mode === "quota") {
+    return {
+      source: "quota-exhausted",
+      upstreamStatus: 429,
+      fallbackReason: quotaFallbackReason,
+      items: [],
+    };
+  }
+  if (mode === "empty") {
+    return {
+      source: "curated",
+      total: 0,
+      fallbackReason: "curated-fallback",
+      items: curatedProductItems(display, category),
+    };
+  }
+  if (mode === "error") {
+    return {
+      source: "curated",
+      upstreamStatus: 503,
+      fallbackReason: "curated-fallback",
+      items: curatedProductItems(display, category),
+    };
+  }
+  return null;
+}
+
+function curatedProductItems(display, category = "") {
+  const requested = String(category || "").trim();
+  const matches = curatedProducts.filter((item) => curatedMatchesCategory(item, requested));
+  const base = matches.length ? matches : curatedProducts;
+  return base.slice(0, display).map(toBackendProductItem);
+}
+
+function curatedMatchesCategory(item, category) {
+  if (!category) return true;
+  if (isMakeupCategory(category)) return ["립", "아이", "베이스", "치크"].includes(item.category);
+  if (category.includes("의상")) return ["상의", "아우터", "원피스", "하의"].includes(item.category);
+  return item.category === category || item.title.includes(category) || item.subtitle.includes(category);
+}
+
+function toBackendProductItem(item) {
+  const query = encodeURIComponent((item.searchKeywords || [item.title])[0] || item.title);
+  return {
+    title: item.title,
+    link: `https://search.shopping.naver.com/search/all?query=${query}`,
+    image: curatedImageUrl(item),
+    lprice: "",
+    mallName: "OliveMe curated",
+    category1: "OliveMe",
+    category2: item.category,
+    category3: item.subtitle,
+    category4: "",
+  };
+}
+
+function curatedImageUrl(item) {
+  const bg = String(item.colorHex || "#FCE2E8").replace("#", "").slice(0, 6) || "fce2e8";
+  return `https://dummyimage.com/300x300/${bg}/3d3137.png&text=OliveMe`;
 }
 
 function isRenderableProduct(item) {
@@ -540,15 +667,26 @@ function loadEnvFile(path) {
   }
 }
 
-const server = app.listen(port, () => {
-  console.log(`OliveMe backend proxy listening on http://127.0.0.1:${port}`);
-});
+function startServer(listenPort = port) {
+  const server = app.listen(listenPort, () => {
+    const address = server.address();
+    const shownPort = typeof address === "object" && address ? address.port : listenPort;
+    console.log(`OliveMe backend proxy listening on http://127.0.0.1:${shownPort}`);
+  });
 
-server.on("error", (error) => {
-  if (error?.code === "EADDRINUSE") {
-    console.error(`OliveMe backend proxy could not start because port ${port} is already in use.`);
-  } else {
-    console.error("OliveMe backend proxy failed to start.", error);
-  }
-  process.exitCode = 1;
-});
+  server.on("error", (error) => {
+    if (error?.code === "EADDRINUSE") {
+      console.error(`OliveMe backend proxy could not start because port ${listenPort} is already in use.`);
+    } else {
+      console.error("OliveMe backend proxy failed to start.", error);
+    }
+    process.exitCode = 1;
+  });
+  return server;
+}
+
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  startServer();
+}
+
+export { app, startServer };

@@ -61,6 +61,7 @@ import com.bumptech.glide.Glide
 import com.oliveme.app.ResultUiState
 import com.oliveme.app.data.repository.CommerceAiRecommendation
 import com.oliveme.app.data.repository.CommerceAiProductPick
+import com.oliveme.app.data.repository.CommerceFallbackReason
 import com.oliveme.app.data.repository.CommerceRecommendationSection
 import com.oliveme.app.data.repository.CommerceProductRecommendation
 import com.oliveme.app.data.repository.ProductRecommendation
@@ -300,7 +301,7 @@ private fun ProductPage(
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("실시간 상품 추천", color = OliveText, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    Text("Naver Shopping 기준으로 지금 볼 수 있는 상품만 보여드려요.", color = OliveTextDim, fontSize = 11.sp)
+                    Text(productSourceDescription(renderableProducts), color = OliveTextDim, fontSize = 11.sp)
                 }
             }
             items(renderableProducts) { product ->
@@ -308,7 +309,7 @@ private fun ProductPage(
             }
         } else {
             item {
-                LocalGuideOnlyCard()
+                LocalGuideOnlyCard(commerce.fallbackReason)
             }
         }
         if (guideItems.isNotEmpty()) {
@@ -320,12 +321,17 @@ private fun ProductPage(
 }
 
 @Composable
-private fun LocalGuideOnlyCard() {
+private fun LocalGuideOnlyCard(reason: CommerceFallbackReason?) {
     OliveCardBlock {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("로컬 컬러 가이드", color = OlivePrimaryDeep, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             Text(
-                "백엔드 상품 추천이 연결되면 AI 추천과 실시간 상품을 함께 보여드려요. 지금은 저장된 진단 팔레트 기준으로만 정리합니다.",
+                when (reason) {
+                    CommerceFallbackReason.ProductApiQuota ->
+                        "상품 API 한도가 잠시 소진되어 지금은 저장된 진단 팔레트 기준으로만 정리합니다."
+                    else ->
+                        "백엔드 상품 추천이 연결되면 AI 추천과 실시간 상품을 함께 보여드려요. 지금은 저장된 진단 팔레트 기준으로만 정리합니다."
+                },
                 color = OliveTextMid,
                 fontSize = 12.sp,
                 lineHeight = 18.sp,
@@ -622,6 +628,13 @@ private fun isRenderableCommerceProduct(product: CommerceProductRecommendation):
     product.title.isNotBlank() &&
         product.linkUrl.isNotBlank() &&
         product.imageUrl.isNotBlank()
+
+private fun productSourceDescription(products: List<CommerceProductRecommendation>): String =
+    if (products.any { it.source == "naver-shopping" }) {
+        "Naver Shopping 기준으로 지금 볼 수 있는 상품만 보여드려요."
+    } else {
+        "백엔드가 준비한 추천 후보를 기준으로 보여드려요."
+    }
 
 private fun CommerceAiRecommendation.sanitizedFor(products: List<CommerceProductRecommendation>): CommerceAiRecommendation? {
     val productsByRank = products.associateBy { it.rank }

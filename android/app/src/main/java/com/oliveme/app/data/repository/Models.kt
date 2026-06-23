@@ -33,6 +33,12 @@ data class CommerceProductRecommendation(
     val source: String = "naver-shopping",
 )
 
+enum class CommerceFallbackReason {
+    BackendUnavailable,
+    ProductApiQuota,
+    EmptyProducts,
+}
+
 data class CommerceAiProductPick(
     val product: CommerceProductRecommendation,
     val reason: String,
@@ -48,6 +54,7 @@ data class CommerceAiRecommendation(
 data class CommerceRecommendationSection(
     val ai: CommerceAiRecommendation? = null,
     val products: List<CommerceProductRecommendation> = emptyList(),
+    val fallbackReason: CommerceFallbackReason? = null,
 )
 
 data class PersonalColorResult(
